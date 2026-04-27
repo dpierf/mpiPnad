@@ -4,7 +4,7 @@
 \alias{cluster_mpi}
 \title{Realiza a clusterização hierárquica (Ward) sobre os 5 scores dimensionais do MPI-LA}
 \usage{
-cluster_mpi(dt, k)
+cluster_mpi(dt, k, reduce = TRUE, dicts = NULL)
 }
 \arguments{
 \item{dt}{Tabela agregada produzida pelo pipeline prep_cluster, já filtrada pelo usuário}
