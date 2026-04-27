@@ -10,17 +10,29 @@ cluster_mpi <- function(dt, k, reduce = TRUE) {
   
   if (reduce) {
     dt <- data.table::as.data.table(dt)
-
-    # Derivar arranjo_dec do texto de arranjo_full (ex: "Casal Com: Homem" -> "Casal Com")
-    dt <- dt[!(arranjo_full %in% c('Unipessoal: Homem', 'Unipessoal: Mulher'))]
+    
+    .dec <- function(x, dict) {
+      if (!is.null(dict)) unname(dict[as.character(x)]) else x
+    }
+    
+    dt[, arranjo_dec := substr(arranjo_full,1,1)]    
+    
     dt[, `:=`(
       tamanho     = data.table::fcase(
         pessoas_dom <= 3L, '2-3',
         pessoas_dom <= 5L, '4-5',
         default           = '6+'
       ),
-      arranjo_dec = sub(':.*', '', arranjo_full)
+      arranjo_full = .dec(arranjo_full,  dicts$arranjo_full),
+      arranjo_dec  = .dec(arranjo_dec,   dicts$arranjo_dec),
+      regiao       = .dec(regiao,        dicts$regiao),
+      setor_dec    = .dec(setor_dec,     dicts$setor_dec),
+      area_dec     = .dec(area_dec,      dicts$area_dec),
+      periodo      = .dec(periodo,       dicts$periodo)
     )]
+    
+    # Derivar arranjo_dec do texto de arranjo_full (ex: "Casal Com: Homem" -> "Casal Com")
+    dt <- dt[!(arranjo_full %in% c('Unipessoal: Homem', 'Unipessoal: Mulher'))]
 
     dt <- dt[, .(
       moradia  = weighted.mean((D1 + D2 + D3) / 3,      peso, na.rm = TRUE),
@@ -30,9 +42,9 @@ cluster_mpi <- function(dt, k, reduce = TRUE) {
       protecao = weighted.mean(P1 * (2/3) + P2 * (1/3), peso, na.rm = TRUE),
       pop_tot  = sum(peso, na.rm = TRUE)
     ), by = .(periodo, uf, regiao, setor_dec, area_dec, arranjo_dec, tamanho)]
-
+    
     dt[, score   := moradia * (6/27) + servicos * (4/18) + padrao * (6/27) +
-                    educacao * (6/27) + protecao * (3/27)]
+         educacao * (6/27) + protecao * (3/27)]
     dt[, periodo := stringr::str_replace_all(periodo, '\u2013', '-')]
   }
   
