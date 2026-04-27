@@ -88,8 +88,8 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
   options(OutDec=',')
   .fmt_n   <- function(x,d=3) formatC(x,digits=d,format='f',decimal.mark=',',big.mark='.')
   .fmt_pct <- function(x)     paste0(formatC(x*100,digits=1,format='f',decimal.mark=','),'%')
-  .comma_br  <- label_number(big.mark='.',decimal.mark=',')
-  .pct_br    <- label_percent(accuracy=0.1,decimal.mark=',')
+  .comma_br  <- scales::label_number(big.mark='.',decimal.mark=',')
+  .pct_br    <- scales::label_percent(accuracy=0.1,decimal.mark=',')
   
   
   # 1. Pré-processamento de dados ====
