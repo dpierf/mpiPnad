@@ -7,4 +7,5 @@
 #' @importFrom RColorBrewer brewer.pal
 #' @importFrom stringr str_replace_all
 #' @importFrom stats lm predict weighted.mean density sd
+#' @importFrom htmltools div tags HTML
 NULL
