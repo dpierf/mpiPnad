@@ -31,6 +31,7 @@ Imports:
     glue,
     googledrive,
     gt,
+    htmltools,
     lubridate,
     memoise,
     parallelly,
