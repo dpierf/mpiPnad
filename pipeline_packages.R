@@ -1,4 +1,11 @@
-# ---- Funcao para instalacao e carregamento de pacotes em R ---- #
+# =======================================================================================
+# mpiPnad: Função para instalação e carregamento de pacotes necessários em R
+# Autor: Pier De Maria
+# Repositório: https://github.com/dpierf/mpiPnad
+#
+# Pré-requisito: instalar o pacote usando `pak::pak('dpierf/mpiPnad')`
+# =======================================================================================
+
 libs <- .libPaths()
 
 for (lib in libs) {
