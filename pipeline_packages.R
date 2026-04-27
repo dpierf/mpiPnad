@@ -20,6 +20,9 @@ pacotes <- c(
   'ggdendro','mclust','FactoMineR','scales','quantreg','frontier','shiny','RColorBrewer','gt'
 )
 
+# Atualizar pacotes desatualizados antes de instalar
+update.packages(ask = FALSE, checkBuilt = TRUE)
+
 instalados <- rownames(installed.packages())
 faltando <- setdiff(pacotes, instalados)
 
