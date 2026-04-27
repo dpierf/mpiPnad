@@ -1,11 +1,17 @@
 #' @import data.table
 #' @import ggplot2
-#' @importFrom scales label_number label_percent label_comma hue_pal percent
-#' @importFrom shiny icon reactive debounce eventReactive renderPlot renderUI observe req validate need HTML fluidRow column selectInput sliderInput actionButton br tags
-#' @importFrom plotly plot_ly add_trace add_segments add_markers add_bars layout ggplotly renderPlotly plotlyOutput
-#' @importFrom bs4Dash bs4DashPage bs4DashNavbar bs4DashBrand bs4DashSidebar bs4DashBody bs4DashSidebar bs4SidebarMenu bs4SidebarMenuItem bs4TabItems bs4TabItem bs4Card bs4ValueBox bs4ValueBoxOutput renderbs4ValueBox
-#' @importFrom RColorBrewer brewer.pal
+#' @import bs4Dash
+#' @import RColorBrewer
+#' @importFrom scales label_number label_percent hue_pal percent
 #' @importFrom stringr str_replace_all
-#' @importFrom stats lm predict weighted.mean density sd
+#' @importFrom plotly plot_ly add_trace add_segments add_markers add_bars layout ggplotly renderPlotly plotlyOutput
+#' @importFrom stats weighted.mean lm predict density sd
 #' @importFrom htmltools div tags HTML
+#' @importFrom shiny shinyApp runApp reactive debounce eventReactive renderPlot renderUI observe req validate need fluidRow column selectInput sliderInput actionButton br icon plotOutput updateSelectInput debounce conditionalPanel
+#' @importFrom shinycssloaders withSpinner
+#' @importFrom shinyjs useShinyjs disable enable
+#' @importFrom geobr read_state
+#' @importFrom arrow read_parquet write_parquet
+#' @importFrom fs path dir_create dir_exists dir_delete file_exists
+#' @importFrom tools R_user_dir
 NULL
