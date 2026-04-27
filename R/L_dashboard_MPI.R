@@ -689,7 +689,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
     
     .mapa_gg <- function(mp,fill_col,fill_label,pal_low,pal_high,fmt=NULL) {
       ggplot(mp)+
-        geom_sf(aes_string(fill=fill_col),colour='white',linewidth=0.3)+
+        geom_sf(aes(fill = .data[[fill_col]]),colour='white',linewidth=0.3)+
         scale_fill_gradient(low=pal_low,high=pal_high,name=fill_label,
                             labels=if(is.null(fmt)) waiver() else fmt)+
         .tema_mapa
