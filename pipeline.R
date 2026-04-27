@@ -1,5 +1,5 @@
 # =======================================================================================
-# mpiPnad — Pipeline de execução
+# mpiPnad: Pipeline de execução
 # Autor: Pier De Maria
 # Repositório: https://github.com/dpierf/mpiPnad
 #
