@@ -4,13 +4,31 @@
 #' @return Lista de objetos relacionados à clusterização
 #' @export
 
-cluster_mpi <- function(dt, k) {
+cluster_mpi <- function(dt, k, reduce = TRUE) {
   
   stopifnot(is.numeric(k), length(k) == 1L, k >= 2L)
   
   dims   <- c('moradia', 'servicos', 'padrao', 'educacao', 'protecao')
   dt     <- data.table::as.data.table(dt)
   dt     <- dt[complete.cases(dt[, ..dims])]
+  
+  if (reduce) {
+    dt <- dt[!(arranjo_full %in% c('Unipessoal: Homem', 'Unipessoal: Mulher'))][
+      , tamanho := data.table::fcase(
+        pessoas_dom <= 3L, '2-3',
+        pessoas_dom <= 5L, '4-5',
+        default           = '6+'
+      )][, .(
+        moradia  = weighted.mean((D1 + D2 + D3) / 3,          peso, na.rm = TRUE),
+        servicos = weighted.mean((B1 + B2 + B3 + B4) / 4,     peso, na.rm = TRUE),
+        padrao   = weighted.mean(V1 * (2/3) + V2 * (1/3),     peso, na.rm = TRUE),
+        educacao = weighted.mean((E1 + E2 + E3) / 3,          peso, na.rm = TRUE),
+        protecao = weighted.mean(P1 * (2/3) + P2 * (1/3),     peso, na.rm = TRUE),
+        pop_tot  = sum(peso, na.rm = TRUE)
+      ), by = .(periodo, uf, regiao, setor_dec, area_dec, arranjo_dec, tamanho)
+      ][, score := moradia * (6/27) + servicos * (4/18) + padrao * (6/27) + educacao * (6/27) + protecao * (3/27)
+      ][, periodo := stringr::str_replace_all(periodo, '\u2013', '-')]
+  }
   
   if (nrow(dt) < k) stop('Número de observações (', nrow(dt), ') menor que k (', k, ').')
   

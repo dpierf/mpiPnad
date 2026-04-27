@@ -1631,7 +1631,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                     paste0('Filtro resultou em apenas ', nrow(dt),
                            ' células — aumente o número mínimo de linhas ou reduza k.')))
       
-      cluster_mpi(dt = dt, k = input$cl_k)
+      cluster_mpi(dt = dt, k = input$cl_k, reduce = FALSE)
     })
     
     output$cl_dendro      <- renderPlot({ req(cl_resultado()); cl_resultado()$p_dendro      })
