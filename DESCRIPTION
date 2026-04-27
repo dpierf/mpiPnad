@@ -1,0 +1,57 @@
+Package: mpipnad
+Title: Cálculo e Análise do MPI-LA para o Brasil com Dados da PNAD (1981-2024)
+Version: 0.0.0.9000
+Authors@R: 
+    person("Pier", "De Maria", , "dpierf@gmail.com", role = c("aut", "cre"))
+Description: Importação, tratamento, cálculo, análise, modelagem e visualização 
+    de microdados da PNAD anual (1981-2015) e PNAD Contínua (2016-2024) para 
+    construção do Índice de Pobreza Multidimensional para América Latina (MPI-LA) 
+    seguindo a metodologia de Santos et al. (2015).
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports: 
+    archive,
+    arrow,
+    bs4Dash,
+    cli,
+    cluster,
+    data.table,
+    dplyr,
+    fs,
+    furrr,
+    future,
+    gamlss,
+    gamlss.dist,
+    geobr,
+    ggdendro,
+    ggplot2,
+    ggrepel,
+    glue,
+    googledrive,
+    gt,
+    lubridate,
+    memoise,
+    parallelly,
+    plotly,
+    PNADcIBGE,
+    progressr,
+    purrr,
+    quantreg,
+    rbcb,
+    RColorBrewer,
+    rlang,
+    sandwich,
+    scales,
+    shiny,
+    shinycssloaders,
+    shinyjs,
+    showtext,
+    stats,
+    stringr,
+    sysfonts,
+    tibble,
+    tidyr,
+    tools,
+    withr
