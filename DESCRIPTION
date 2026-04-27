@@ -7,7 +7,7 @@ Description: Importação, tratamento, cálculo, análise, modelagem e visualiza
     de microdados da PNAD anual (1981-2015) e PNAD Contínua (2016-2024) para 
     construção do Índice de Pobreza Multidimensional para América Latina (MPI-LA) 
     seguindo a metodologia de Santos et al. (2015).
-License: MIT + file LICENSE
+License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
