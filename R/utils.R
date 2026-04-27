@@ -6,8 +6,8 @@
 #' @importFrom stringr str_replace_all
 #' @importFrom plotly plot_ly add_trace add_segments add_markers add_bars layout ggplotly renderPlotly plotlyOutput
 #' @importFrom stats weighted.mean lm predict density sd
-#' @importFrom htmltools div tags HTML
-#' @importFrom shiny shinyApp runApp reactive debounce eventReactive renderPlot renderUI observe req validate need fluidRow column selectInput sliderInput actionButton br icon plotOutput updateSelectInput debounce conditionalPanel
+#' @importFrom htmltools div tags HTML tagList
+#' @importFrom shiny shinyApp runApp reactive debounce eventReactive renderPlot renderUI uiOutput observe req validate need fluidRow column selectInput sliderInput actionButton br icon plotOutput updateSelectInput conditionalPanel
 #' @importFrom shinycssloaders withSpinner
 #' @importFrom shinyjs useShinyjs disable enable
 #' @importFrom geobr read_state
