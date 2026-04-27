@@ -37,7 +37,7 @@ pak::pak('dpierf/mpiPnad')
 source('pipeline_packages.R')
 ```
 
-Execute o pipeline completo abrindo o arquivo `pipeline.R`. Siga as instruções do arquivo.
+O pipeline completo pode ser executado, etapa por etapa, abrindo o arquivo `pipeline.R`. Siga as instruções do arquivo.
 
 ---
 
@@ -78,14 +78,51 @@ Para a PNAD Contínua (2016-2024), os microdados necessários já são baixados 
 
 ---
 
-## Referência metodológica
+## Autoria
 
-Santos, M.E., Villatoro, P., Mancero, X., & Gerstenfeld, P. (2015).
-*A Multidimensional Poverty Index for Latin America*.
-OPHI Working Paper 79. University of Oxford.
+**Pier Francesco De Maria**  
+[![Lattes](https://img.shields.io/badge/Lattes-CNPq-blue)](http://lattes.cnpq.br/8532403786219091)
+
+[![ORCID](https://img.shields.io/badge/ORCID-0000--0003--1389--3082-green)](https://orcid.org/0000-0003-1389-3082)  
+
+[![Email](https://img.shields.io/badge/Email-dpierf%40gmail.com-red)](mailto:dpierf@gmail.com)
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Pier%20F.%20De%20Maria-blue?logo=linkedin)](https://www.linkedin.com/in/dpierf)
 
 ---
 
-## Licença
+## Origem e referência teórica
 
-MIT © Pier De Maria
+Este pacote foi desenvolvido no âmbito de pesquisa acadêmica em continuidade à dissertação de mestrado:
+
+> MARIA, Pier Francesco De. **Família e pobreza: arranjos no Pós-Real (1995–2014)**. 2016. Dissertação (Mestrado em Demografia) - Universidade Estadual de Campinas, Campinas, 2016.
+
+O desenvolvimento e a implementação do MPI-LA a nível Brasil seguiu, como referencial, o seguinte trabalho do Oxford Poverty and Human Development Initiative (OPHI):
+
+> SANTOS, Maria Emma et al. **A multidimensional poverty index for Latin America**. Oxford: OPHI, 2015. (OPHI Working Paper, 79). Disponível em: https://ophi.org.uk/wp-content/uploads/OPHIWP079.pdf. Acesso em: 27 abr. 2026.
+
+---
+
+## Uso de inteligência artificial generativa
+
+O desenvolvimento deste pacote contou com o auxílio extensivo de inteligência artificial generativa ao longo de todo o processo — incluindo arquitetura do pipeline, escrita e revisão de código, decisões metodológicas e documentação. A ferramenta utilizada foi:
+
+> ANTHROPIC. **Claude Sonnet 4.6**. San Francisco: Anthropic, 2025. Disponível em: https://claude.ai. Acesso em: 27 abr. 2026.
+
+O uso de IA não substitui a responsabilidade intelectual do autor sobre as escolhas metodológicas, interpretações e resultados apresentados.
+
+---
+
+## Licença e Como citar este pacote
+
+**GPL-3.0 © Pier Francesco De Maria**
+
+Este pacote é distribuído sob a GNU General Public License v3.0. Você pode usar, copiar e modificar este código livremente, desde que:
+
+* Atribua o trabalho original ao autor
+* Distribua qualquer versão modificada sob a mesma licença GPL-3.0
+* Disponibilize o código-fonte de qualquer derivação publicamente
+Isso garante que trabalhos derivados deste pacote permaneçam abertos e rastreáveis até a fonte original. Pier Francesco De Maria
+
+Para citação deste pacote em publicações futuras, siga a referência abaixo (conforme NBR 6023:2025)
+> DE MARIA, Pier Francesco. **mpiPnad** - MPI-LA Brasil: PNAD & PNAD Contínua (1981–2024). Versão 0.0.0.9000. [S.l.]: GitHub, 2025. Disponível em: https://github.com/dpierf/mpiPnad. Acesso em: 27 abr. 2026.
