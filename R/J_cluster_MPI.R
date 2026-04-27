@@ -8,10 +8,6 @@ cluster_mpi <- function(dt, k, reduce = TRUE) {
   
   stopifnot(is.numeric(k), length(k) == 1L, k >= 2L)
   
-  dims   <- c('moradia', 'servicos', 'padrao', 'educacao', 'protecao')
-  dt     <- data.table::as.data.table(dt)
-  dt     <- dt[complete.cases(dt[, ..dims])]
-  
   if (reduce) {
     dt <- dt[!(arranjo_full %in% c('Unipessoal: Homem', 'Unipessoal: Mulher'))][
       , tamanho := data.table::fcase(
@@ -29,6 +25,10 @@ cluster_mpi <- function(dt, k, reduce = TRUE) {
       ][, score := moradia * (6/27) + servicos * (4/18) + padrao * (6/27) + educacao * (6/27) + protecao * (3/27)
       ][, periodo := stringr::str_replace_all(periodo, '\u2013', '-')]
   }
+  
+  dims   <- c('moradia', 'servicos', 'padrao', 'educacao', 'protecao')
+  dt     <- data.table::as.data.table(dt)
+  dt     <- dt[complete.cases(dt[, ..dims])]
   
   if (nrow(dt) < k) stop('Número de observações (', nrow(dt), ') menor que k (', k, ').')
   
