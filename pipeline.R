@@ -1,5 +1,5 @@
 # =======================================================================================
-# mpiPnad: Pipeline de execução
+# mpiPnad — Pipeline de execução
 # Autor: Pier De Maria
 # Repositório: https://github.com/dpierf/mpiPnad
 #
@@ -11,12 +11,33 @@
 
 rm(list = ls())
 
-# Instalar/carregar dependências do pacote
-source('pipeline_packages.R')
+# Remover bloqueios de instalação
+for (lib in .libPaths()) {
+  locks <- list.files(lib, pattern = '^00LOCK', full.names = TRUE)
+  if (length(locks) > 0) {
+    unlink(locks, recursive = TRUE, force = TRUE)
+    message('Removidos bloqueios em: ', lib)
+  }
+}
 
-# Carregar o pacote
-pak::pak('dpierf/mpiPnad') #Executar só na primeira vez
-require(mpipnad)
+rm(lib, locks)
+
+# Instalar/atualizar o pacote 'pak'
+if (!requireNamespace('pak', quietly = TRUE)) {
+  install.packages('pak')
+} else {
+  pak::pak('pak')
+}
+
+
+# Instalar/Atualizar o pacote 'mpipnad' e dependências
+pak::cache_clean()
+if (requireNamespace('mpipnad', quietly = TRUE)) {
+  try(unloadNamespace('mpipnad'), silent = TRUE)
+  remove.packages('mpipnad')
+}
+pak::pak('dpierf/mpiPnad', upgrade = TRUE, dependencies = TRUE)
+library(mpipnad)
 
 
 # 1. DOWNLOAD E PROCESSAMENTO ===========================================================
@@ -41,12 +62,12 @@ mpi_pnad <- create_mpi()
 
 # 3. ANÁLISE DESCRITIVA =================================================================
 
-# Medidas-resumo por recorte desejado
+# Medidas-resumo por recorte desejado (com exportação para CSV)
 mpi_summary <- resume_mpi(
   dt       = mpi_pnad,
   grupos   = c('ano'), #Outros grupos: 'setor', 'area', 'arranjo_familiar'
   k_output = 0.33
-)
+) |> write.table('mpi_summary.csv', sep = ';', dec = ',')
 
 # Gráficos e tabelas para análise descritiva (salva em output/graphs/)
 analyse_mpi(dt = mpi_pnad)
@@ -55,7 +76,7 @@ analyse_mpi(dt = mpi_pnad)
 # 4. MODELAGEM ECONOMÉTRICA =============================================================
 
 # Ajustar modelos ZOIB, quantílico e logit
-mods <- models_mpi(
+modelos <- models_mpi(
   dt      = mpi_pnad,
   modelos = c('logit', 'quant', 'zoib'),
   rds     = FALSE #Somente trocar para 'TRUE' se o objetivo é salvar os RDS (>1.5GB cada)
@@ -66,7 +87,7 @@ mods <- models_mpi(
 
 # Rodar clustering (k = número de clusters desejado)
 anos <- c(1981:1985)
-clus_mpi <- cluster_mpi(
+grupos <- cluster_mpi(
   dt     = mpi_pnad[ano %in% anos,], 
   k      = 3, 
   reduce = T,
@@ -74,7 +95,7 @@ clus_mpi <- cluster_mpi(
 )
 
 # Visualizar resultados
-with(clus_mpi, {
+with(grupos, {
   print(p_dendro)       # Dendrograma Ward
   print(p_perfil)       # Perfil dimensional por cluster
   print(p_comp)         # Composição categórica por cluster
