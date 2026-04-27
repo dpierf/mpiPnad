@@ -4,7 +4,7 @@
 #' @return Lista de objetos relacionados à clusterização
 #' @export
 
-cluster_mpi <- function(dt, k, reduce = TRUE) {
+cluster_mpi <- function(dt, k, reduce = TRUE, dicts = NULL) {
   
   stopifnot(is.numeric(k), length(k) == 1L, k >= 2L)
   
