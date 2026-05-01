@@ -78,6 +78,7 @@ resume_mpi <- function(
   # Adiciona totais se houver grupos não-ano
   if (length(grupos_nao_ano) > 0) {
     res_total <- calc(if (length(grupos_ano) > 0) grupos_ano else NULL)
+    data.table::setDT(res_total)
     res_total[, (grupos_nao_ano) := 'Total']
     
     # Reordena colunas
