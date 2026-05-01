@@ -9,7 +9,7 @@ cluster_mpi <- function(dt, k, reduce = TRUE, dicts = NULL) {
   stopifnot(is.numeric(k), length(k) == 1L, k >= 2L)
   
   if (reduce) {
-    dt <- data.table::as.data.table(dt)
+    dt <- data.table::setDT(dt) 
     
     .dec <- function(x, dict) {
       if (!is.null(dict)) unname(dict[as.character(x)]) else x
@@ -33,7 +33,7 @@ cluster_mpi <- function(dt, k, reduce = TRUE, dicts = NULL) {
     
     # Derivar arranjo_dec do texto de arranjo_full (ex: "Casal Com: Homem" -> "Casal Com")
     dt <- dt[!(arranjo_full %in% c('Unipessoal: Homem', 'Unipessoal: Mulher'))]
-
+    
     dt <- dt[, .(
       moradia  = weighted.mean((D1 + D2 + D3) / 3,      peso, na.rm = TRUE),
       servicos = weighted.mean((B1 + B2 + B3 + B4) / 4, peso, na.rm = TRUE),
@@ -51,7 +51,6 @@ cluster_mpi <- function(dt, k, reduce = TRUE, dicts = NULL) {
   dims   <- c('moradia', 'servicos', 'padrao', 'educacao', 'protecao')
   dt     <- data.table::as.data.table(dt)
   dt     <- dt[complete.cases(dt[, ..dims])]
-  
   if (nrow(dt) < k) stop('Número de observações (', nrow(dt), ') menor que k (', k, ').')
   
   mat   <- as.matrix(dt[, ..dims])

@@ -16,17 +16,17 @@ models_mpi <- function(dt,
                        rds        = FALSE,
                        cutoff_k   = 0.33,
                        seed       = 186) {
-
+  
   # 0. Elementos Preparatórios ====
   
   # Dicionários e checagens
   dicts <- readRDS('data/mpi_dictionary.rds')
   .dec <- function(x, dict) unname(dict[as.character(x)])
-
+  
   modelos <- match.arg(modelos, c('zoib','quant','logit'), several.ok = TRUE)
   fs::dir_create(output_dir)
   .sufixo <- if (is.null(n_sample)) '_global' else '_amostra'
-
+  
   .ref_periodo   <- '1981–1993'
   .ref_regiao    <- 'Sudeste'
   .ref_setor     <- 'Urbano'
@@ -74,10 +74,12 @@ models_mpi <- function(dt,
   .check_ref(.ref_arranjo, 'arranjo_dec')
   
   # Criação de atributos intermediários
+  n_total <- nrow(dt)
   dt[, `:=` (
     score_zoib = fcase(
-      score == 1,  (1 * (.N - 1) + 0.5) / .N,
+      score == 1, (1 * (n_total - 1) + 0.5) / n_total,
       default    = score),
+    idade_real      = ifelse(idade %between% c(850,998), ano - (idade + 1000), idade),
     periodo         = relevel(factor(periodo),     ref = .ref_periodo),
     sexo            = relevel(factor(sexo_dec),    ref = .ref_sexo),
     raca            = relevel(factor(raca),        ref = .ref_raca),
@@ -101,17 +103,10 @@ models_mpi <- function(dt,
     ), levels = c('0 anos','1 a 4 anos','5 a 7 anos','8 a 10 anos','11 a 14 anos','15+ anos'), ordered = TRUE),
     
     faixa = factor(fcase(
-      idade %between% c(850,998), fcase(
-        as.integer(ano - (idade+1000)) %between% c(15,29),  '15-29',
-        as.integer(ano - (idade+1000)) %between% c(30,49),  '30-49',
-        as.integer(ano - (idade+1000)) %between% c(50,64),  '50-64',
-        as.integer(ano - (idade+1000)) %between% c(65,120), '65+',
-        default = 'NA'
-      ),
-      idade %between% c(15,29),  '15-29',
-      idade %between% c(30,49),  '30-49',
-      idade %between% c(50,64),  '50-64',
-      idade %between% c(65,120), '65+',
+      idade_real %between% c(15,29), '15-29',
+      idade_real %between% c(30,49), '30-49',
+      idade_real %between% c(50,64), '50-64',
+      idade_real %between% c(65,120), '65+',
       default = 'NA'
     ), levels = c('15-29','30-49','50-64','65+','NA'), ordered = TRUE),
     
@@ -290,7 +285,8 @@ models_mpi <- function(dt,
     coef_qr <- as.data.table(coef(mod_qr), keep.rownames = 'termo')
     setnames(coef_qr, tau_cols, tau_ids)
     coef_qr <- melt(coef_qr, id.vars = 'termo',
-                    variable.name = 'tau', value.name = 'coef')
+                    variable.name = 'tau', value.name = 'coef',
+                    variable.factor = FALSE)
     
     # grade de preditos
     nd_quant <- copy(nd)
@@ -332,7 +328,7 @@ models_mpi <- function(dt,
     
     cli::cli_alert_success('Modelo estimado para k = {cutoff_k}')
     gc(verbose = FALSE, full = TRUE)
-
+    
     # var-covar e SE
     p_hat   <- predict(mod_logit, type = 'response')
     escala  <- mean(p_hat * (1 - p_hat), na.rm = TRUE)
@@ -369,7 +365,7 @@ models_mpi <- function(dt,
     
     nd_logit$peso_norm <- 1
     nd_logit$pobre     <- 0L
-
+    
     nd_logit$p_pobre <- predict(mod_logit, newdata = nd_logit, type = 'response')
     grade_logit      <- as.data.table(nd_logit[, c('p_pobre','periodo','regiao','setor','area',
                                                    'raca','faixa','nivel','arranjo_full','tamanho','agregados')])
@@ -379,7 +375,7 @@ models_mpi <- function(dt,
     arrow::write_parquet(coef_logit,    fs::path(output_dir, paste0('logit_coefs',   .sufixo, '.parquet')))
     arrow::write_parquet(ame_dt,        fs::path(output_dir, paste0('logit_effects', .sufixo, '.parquet')))
     arrow::write_parquet(grade_logit,   fs::path(output_dir, paste0('logit_grade',   .sufixo, '.parquet')))
-
+    
     cli::cli_alert_success('Resultados salvos em {output_dir}')
     
     out_logit <- list(mod_logit=mod_logit, coef_logit=coef_logit,

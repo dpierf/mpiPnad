@@ -21,7 +21,7 @@ analyse_mpi <- function(
     grupos               = 'all',
     k_ref                = 0.33,
     cutoffs              = c(0.10, 0.20, 0.25, 0.33, 0.40, 0.50),
-
+    
     anos_tabs            = c(1981, 1987, 1993, 1999, 2005, 2011, 2017, 2024), #Anos-padrão para as tabelas
     anos_comp            = c(1985, 1995, 2005, 2015, 2024), #Anos-padrão para evolução da composição
     anos_maps            = c(1981, 1995, 2009, 2024), #Anos-padrão para plotagem de mapas
@@ -29,7 +29,7 @@ analyse_mpi <- function(
     anos_beta            = c(1981, 2024), #Anos-padrão de início e fim da análise de convergência-beta
     anos_decp            = list(c(1981,1986), c(1986,1995), c(1995,2002), c(2002,2008),
                                 c(2008,2014), c(2014,2019), c(2019,2024)),
-
+    
     dpi                  = 200, #DPI bom para visualização online sem prejuízos
     dir_out              = 'output/graphs',
     shapefiles           = NULL,
@@ -38,18 +38,18 @@ analyse_mpi <- function(
     ext                  = 'png',
     verbose              = T
 ) {
-
-
+  
+  
   # == 0. Validação e setup ====================================================
-
+  
   stopifnot(data.table::is.data.table(dt))
   fs::dir_create(dir_out)
-
+  
   grupos_validos <- c(
     'mapas', 'composicao', 'evolucao', 'sensibilidade', 'decomposicao',
     'convergencia', 'granularidade', 'densidade', 'dominancia', 'concentracao'
   )
-
+  
   if (!identical(grupos, 'all')) {
     invalid_g <- setdiff(grupos, grupos_validos)
     if (length(invalid_g) > 0)
@@ -58,16 +58,19 @@ analyse_mpi <- function(
         '\nDisponíveis: ', paste(grupos_validos, collapse = ', ')
       )
   }
-
+  
   anos_dt  <- sort(unique(dt$ano))
   ano_min  <- min(anos_dt)
   ano_max  <- max(anos_dt)
-
+  
   caption_base <- 'Fonte: PNAD anual (1981-2015) e PNAD contínua, visita 1 (2016-2024). Elaboração própria.'
-
-
+  
+  cache_hamp <- new.env()
+  cache_mpi_uf <- new.env()
+  
+  
   # == 1. Setup tipográfico ====================================================
-
+  
   if (usar_fonte) {
     if (!requireNamespace('showtext', quietly = T) ||
         !requireNamespace('sysfonts',  quietly = T)) {
@@ -80,10 +83,10 @@ analyse_mpi <- function(
     }
   }
   fonte <- if (usar_fonte) 'source_sans' else ''
-
-
+  
+  
   # == 2. Constantes internas ==================================================
-
+  
   # Pesos
   .w_pnad <- c(
     D1 = 2/27, D2 = 2/27, D3 = 2/27,
@@ -97,7 +100,7 @@ analyse_mpi <- function(
     tibble::enframe(.w_pnad, name = 'indicador', value = 'peso') |> dplyr::mutate(periodo = 'pnad'),
     tibble::enframe(.w_pnad, name = 'indicador', value = 'peso') |> dplyr::mutate(periodo = 'pnadc')
   )
-
+  
   # Dimensões e indicadores
   dim_map <- c(
     D1 = 'Moradia',         D2 = 'Moradia',         D3 = 'Moradia',
@@ -216,9 +219,9 @@ analyse_mpi <- function(
     'Centro-Oeste' = '#2e7d32'
   )
   
-
+  
   # == 3. Setup geográfico =====================================================
-
+  
   siglas_uf <- c(
     'Rondônia' = 'RO', 'Acre' = 'AC', 'Amazonas' = 'AM', 'Roraima' = 'RR',
     'Pará' = 'PA', 'Amapá' = 'AP', 'Maranhão' = 'MA', 'Piauí' = 'PI',
@@ -231,13 +234,13 @@ analyse_mpi <- function(
     'Território de Roraima' = 'RR', 'Território de Rondônia' = 'RO',
     'Litígio PI/CE' = 'PI', 'Brasília' = 'DF', 'Território do Amapá' = 'AP'
   )
-
+  
   .normalizar_geo <- function(uf_geo) {
     if ('abbrev_state' %in% names(uf_geo)) return(uf_geo)
     dplyr::mutate(uf_geo, abbrev_state = dplyr::recode(name_state, !!!siglas_uf))
   }
   .ano_para_shapefile <- function(a) dplyr::case_when(a <= 1988~1980L, a <= 2000~1991L, T~2020L)
-
+  
   if (is.null(shapefiles)) {
     if (verbose) message('Baixando shapefiles...')
     shapefiles <- list(
@@ -246,7 +249,7 @@ analyse_mpi <- function(
       '2020' = geobr::read_state(year = 2020, simplified = T, showProgress = F, cache = F)
     ) |> purrr::map(.normalizar_geo)
   }
-
+  
   limites_escala <- dt |>
     dplyr::filter(ano %in% anos_maps) |>
     dplyr::reframe(
@@ -255,32 +258,42 @@ analyse_mpi <- function(
     ) |>
     dplyr::reframe(lim = range(score_medio, na.rm = T)) |>
     dplyr::pull(lim)
-
-
+  
+  
   # == 4. Helpers analíticos ===================================================
-
-  .hamp_serie <- function(k = k_ref) {
-    dt |>
-      dplyr::summarise(
-        H   = 100 * weighted.mean(score  >=  k,        w = peso,           na.rm = T),
-        A   = 100 * weighted.mean(score[score >= k],   w = peso[score >= k], na.rm = T),
-        MPI = H * A / 100,
-        .by = ano
-      ) |> dplyr::arrange(ano)
+  
+  .hamp_serie_cache <- NULL
+  
+  .hamp_serie <- function(k = k_ref, force_refresh = FALSE) {
+    if (force_refresh || is.null(.hamp_serie_cache)) {
+      .hamp_serie_cache <- dt |>
+        dplyr::summarise(
+          H   = 100 * weighted.mean(score  >=  k, w = peso, na.rm = TRUE),
+          A   = 100 * weighted.mean(score[score >= k], w = peso[score >= k], na.rm = TRUE),
+          MPI = H * A / 100,
+          .by = ano
+        ) |> dplyr::arrange(ano)
+    }
+    .hamp_serie_cache
   }
-
-  .mpi_uf_serie <- function(k = k_ref) {
-    dt |>
-      dplyr::summarise(
-        H   = weighted.mean(score  >=  k,        w = peso,           na.rm = T),
-        A   = weighted.mean(score[score >= k],   w = peso[score >= k], na.rm = T),
-        MPI = 100 * H * A,
-        .by = c(ano, uf)
-      ) |>
-      dplyr::mutate(macro = factor(macro_map[uf], levels = niveis_macro)) |>
-      dplyr::filter(!is.na(macro))
+  
+  .mpi_uf_serie_cache <- NULL
+  
+  .mpi_uf_serie <- function(k = k_ref, force_refresh = FALSE) {
+    if (force_refresh || is.null(.mpi_uf_serie_cache)) {
+      .mpi_uf_serie_cache <- dt |>
+        dplyr::summarise(
+          H   = weighted.mean(score >= k, w = peso, na.rm = TRUE),
+          A   = weighted.mean(score[score >= k], w = peso[score >= k], na.rm = TRUE),
+          MPI = 100 * H * A,
+          .by = c(ano, uf)
+        ) |>
+        dplyr::mutate(macro = factor(macro_map[uf], levels = niveis_macro)) |>
+        dplyr::filter(!is.na(macro))
+    }
+    .mpi_uf_serie_cache
   }
-
+  
   .composicao_dados <- function(by_vars) {
     dt |>
       dplyr::mutate(periodo = dplyr::if_else(ano <= 2015,'pnad', 'pnadc')) |>
@@ -302,7 +315,7 @@ analyse_mpi <- function(
         .by = dplyr::all_of(by_vars)
       )
   }
-
+  
   .privacao_ind_ano <- function() {
     dt |>
       dplyr::mutate(periodo = dplyr::if_else(ano <= 2015,'pnad', 'pnadc')) |>
@@ -318,40 +331,40 @@ analyse_mpi <- function(
         label_ind     = labels_ind[indicador]
       )
   }
-
+  
   .lorenz_ponderada <- function(score, peso, n_pontos = 500) {
     score <- as.numeric(score)
     peso  <- as.numeric(peso)
-
+    
     ok    <- is.finite(score) & is.finite(peso) & peso > 0 & score  >=  0
     score <- score[ok]
     peso  <- peso[ok]
-
+    
     pg <- seq(0, 1, length.out = n_pontos)
-
+    
     # Dados insuficientes ou score todo zero → devolve diagonal (Gini = 0)
     soma_sw <- sum(score * peso)
     if (length(score) < 2 || soma_sw  ==  0)
       return(tibble::tibble(pop_cum = pg, score_cum = pg))
-
+    
     ord    <- order(score)
     w_cum  <- cumsum(peso[ord])               / sum(peso[ord])
     sw_cum <- cumsum(score[ord] * peso[ord])  / soma_sw
-
+    
     # ties = 'ordered': curva monotônica mesmo com muitos scores idênticos
     tibble::tibble(
       pop_cum   = pg,
       score_cum = approx(c(0, w_cum), c(0, sw_cum), xout = pg, ties = 'ordered')$y
     )
   }
-
+  
   .gini_ponderado <- function(score, peso) {
     l    <- .lorenz_ponderada(as.numeric(score), as.numeric(peso), n_pontos = 2000)
     n    <- nrow(l)
     area <- sum(diff(l$pop_cum) * (l$score_cum[-1] + l$score_cum[-n]) / 2)
     1 - 2 * area
   }
-
+  
   .curvas_hk <- function(dt_sub, col_grupo, niveis_grupo, n_pontos = 200) {
     ks <- seq(0,1,length.out = n_pontos)
     purrr::map(niveis_grupo, \(grp) {
@@ -362,29 +375,29 @@ analyse_mpi <- function(
       )) |> purrr::list_rbind()
     }) |> purrr::list_rbind()
   }
-
+  
   .prep_grupo <- function(dt_sub, atributo, labels) {
     dt_sub |>
       dplyr::mutate(grupo = factor(dplyr::recode(.data[[atributo]],!!!labels), levels = unname(labels))) |>
       dplyr::filter(!is.na(grupo))
   }
-
+  
   .auc_absoluta <- function(score, peso, n_pontos = 200) {
     ks <- seq(0, 1, length.out = n_pontos)
     hs <- purrr::map_dbl(ks, \(k) weighted.mean(score >= k, w = peso, na.rm = T))
     sum(diff(ks) * (hs[-1] + hs[-length(hs)]) / 2) * 100
   }
-
+  
   .fsd <- function(score_a, peso_a, score_b, peso_b, n_pontos = 200) {
     ks <- seq(0, 1, length.out = n_pontos)
     ha <- purrr::map_dbl(ks, \(k) weighted.mean(score_a >= k, w = peso_a, na.rm = T))
     hb <- purrr::map_dbl(ks, \(k) weighted.mean(score_b >= k, w = peso_b, na.rm = T))
     mean(ha > hb)
   }
-
-
+  
+  
   # == 5. Tema e escalas =======================================================
-
+  
   theme_artigo <- function(bs = base_size) {
     f <- fonte
     ggplot2::theme_minimal(base_size = bs) +
@@ -408,7 +421,7 @@ analyse_mpi <- function(
         panel.grid.major = ggplot2::element_line(color = 'grey92')
       )
   }
-
+  
   theme_mapa <- function() {
     f <- fonte
     ggplot2::theme_void(base_size = base_size) +
@@ -427,38 +440,48 @@ analyse_mpi <- function(
         plot.margin       = ggplot2::margin(10,10,8,10)
       )
   }
-
+  
   scale_x_anos <- function() {
     ggplot2::scale_x_continuous(breaks = anos_dt, expand = ggplot2::expansion(mult = c(0.01,0.01)))
   }
-
+  
   colorbar_padrao <- function(titulo) {
     ggplot2::guide_colorbar(
       title = titulo, title.position = 'top',
       barwidth = ggplot2::unit(12,'cm'), barheight = ggplot2::unit(0.4,'cm')
     )
   }
-
-
+  
+  .gerar_cores_anos <- function(anos, paleta = 'Spectral') {
+    anos_ordenados <- sort(anos)
+    cores <- colorRampPalette(RColorBrewer::brewer.pal(min(11, length(anos_ordenados)), paleta))(length(anos_ordenados))
+    setNames(cores, as.character(anos_ordenados))
+  }
+  
+  
   # == 6. Geradores internos  ==================================================
-
+  
   # 6.1 Tabelas ----------------------------------------------------------------
-
+  
   .tab_arranjo <- function() {
-    cols_ord <- unname(labels_arranjo[as.character(ordem_arranjo)])
     dt |>
       dplyr::filter(ano %in% anos_tabs) |>
       dplyr::reframe(
         mpi_medio = 100 * weighted.mean(score, w = peso, na.rm = TRUE),
-        .by = c(ano, arranjo_full)) |>
+        .by = c(ano, arranjo_full)
+      ) |>
       dplyr::mutate(
         ano          = factor(ano, levels = sort(unique(ano))),
-        arranjo_lbl  = factor(
-          labels_arranjo[as.character(arranjo_full)],
-          levels = cols_ord)) |>
+        sexo         = factor(sexo_mapa_vec[as.character(arranjo_full)], levels = niveis_sexo),
+        tipo_arranjo = factor(tipo_mapa_vec[as.character(arranjo_full)], levels = niveis_tipo)
+      ) |>
       dplyr::select(-arranjo_full) |>
-      tidyr::pivot_wider(names_from = arranjo_lbl, values_from = mpi_medio) |>
-      dplyr::select(ano, dplyr::all_of(cols_ord)) |>
+      tidyr::pivot_wider(
+        id_cols     = ano,
+        names_from  = c(tipo_arranjo, sexo),
+        values_from = mpi_medio,
+        names_sep   = ' - '
+      ) |>
       dplyr::arrange(ano) |>
       gt::gt(rowname_col = 'ano') |>
       gt::tab_header(
@@ -466,14 +489,25 @@ analyse_mpi <- function(
         subtitle = 'Score médio (ponderado) de privação, por arranjo domiciliar e anos selecionados'
       ) |>
       gt::fmt_number(columns = dplyr::where(is.numeric), decimals = 1) |>
-      gt::tab_spanner(label = 'Unipessoal',       columns = c('Unipessoal M',       'Unipessoal F'))       |>
-      gt::tab_spanner(label = 'Monoparental',     columns = c('Monoparental M',     'Monoparental F'))     |>
-      gt::tab_spanner(label = 'Casal sem Filhos', columns = c('Casal sem Filhos M', 'Casal sem Filhos F')) |>
-      gt::tab_spanner(label = 'Casal com Filhos', columns = c('Casal com Filhos M', 'Casal com Filhos F')) |>
+      gt::cols_label(
+        `Unipessoal - Masculina`       = 'Masculina',
+        `Unipessoal - Feminina`        = 'Feminina',
+        `Monoparental - Masculina`     = 'Masculina',
+        `Monoparental - Feminina`      = 'Feminina',
+        `Casal sem Filhos - Masculina` = 'Masculina',
+        `Casal sem Filhos - Feminina`  = 'Feminina',
+        `Casal com Filhos - Masculina` = 'Masculina',
+        `Casal com Filhos - Feminina`  = 'Feminina'
+      ) |>
+      gt::tab_spanner(label = 'Unipessoal',       columns = dplyr::starts_with('Unipessoal'))       |>
+      gt::tab_spanner(label = 'Monoparental',     columns = dplyr::starts_with('Monoparental'))     |>
+      gt::tab_spanner(label = 'Casal sem Filhos', columns = dplyr::starts_with('Casal sem Filhos')) |>
+      gt::tab_spanner(label = 'Casal com Filhos', columns = dplyr::starts_with('Casal com Filhos')) |>
       gt::tab_stubhead(label = 'Ano') |>
       gt::tab_source_note(source_note = caption_base) |>
       gt::opt_stylize(style = 6, color = 'blue')
   }
+  
   .tab_sensibilidade <- function() {
     dt |>
       dplyr::filter(ano %in% anos_tabs) |>
@@ -501,9 +535,9 @@ analyse_mpi <- function(
       gt::tab_source_note(source_note = caption_base) |>
       gt::opt_stylize(style = 6, color = 'blue')
   }
-
+  
   .tab_auc_arranjo <- function() {
-
+    
     dados_wide <- purrr::map_dfr(ordem_arranjo, \(arr) {
       purrr::map_dfr(anos_tabs, \(yr) {
         d <- dt[ano == yr & arranjo_full == arr]
@@ -512,8 +546,8 @@ analyse_mpi <- function(
       })
     }) |>
       dplyr::mutate(
-        sexo         = factor(sexo_mapa_vec[arranjo],  levels = niveis_sexo),
-        tipo_arranjo = factor(tipo_mapa_vec[arranjo],  levels = niveis_tipo)
+        sexo         = factor(sexo_mapa_vec[as.character(arranjo)], levels = niveis_sexo),
+        tipo_arranjo = factor(tipo_mapa_vec[as.character(arranjo)], levels = niveis_tipo)
       ) |>
       dplyr::arrange(tipo_arranjo, sexo) |>
       tidyr::pivot_wider(
@@ -522,11 +556,11 @@ analyse_mpi <- function(
         values_from = auc
       ) |>
       dplyr::select(-arranjo)
-
+    
     # Range global calculado antes do gt
     vals   <- dplyr::select(dados_wide, dplyr::where(is.numeric))
     domain <- c(min(vals, na.rm = T), max(vals, na.rm = T))
-
+    
     dados_wide |>
       gt::gt(rowname_col = 'tipo_arranjo', groupname_col = 'sexo') |>
       gt::tab_header(
@@ -546,9 +580,9 @@ analyse_mpi <- function(
       gt::tab_source_note(source_note = caption_base) |>
       gt::opt_stylize(style = 6, color = 'blue')
   }
-
+  
   # 6.2 Evolução H-A-MPI -------------------------------------------------------
-
+  
   .plot_score_mpi <- function() {
     dt |>
       dplyr::summarise(
@@ -570,7 +604,7 @@ analyse_mpi <- function(
                     subtitle = paste0('k de referência: ',k_ref), x = NULL, y = 'Valores (%)', color = NULL, caption = caption_base) +
       theme_artigo()
   }
-
+  
   .plot_h_a_mpi <- function() {
     dt |>
       dplyr::summarise(
@@ -590,7 +624,7 @@ analyse_mpi <- function(
                     subtitle = paste0('k de referência: ',k_ref), x = NULL, y = 'Valor (%)', color = NULL, fill = NULL, caption = caption_base) +
       theme_artigo()
   }
-
+  
   .plot_mpi_macrorregiao <- function() {
     dt |>
       dplyr::mutate(macro = factor(macro_map[uf],levels = niveis_macro)) |>
@@ -612,9 +646,9 @@ analyse_mpi <- function(
       theme_artigo() +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1,override.aes = list(linewidth = 2.5)))
   }
-
+  
   # 6.3 Sensibilidade ----------------------------------------------------------
-
+  
   .plot_sensibilidade <- function() {
     dt |>
       dplyr::reframe(
@@ -638,7 +672,7 @@ analyse_mpi <- function(
                     x = NULL,y = 'MPI (%)',color = 'Cutoff (k)',caption = caption_base) +
       theme_artigo()
   }
-
+  
   .plot_sensibilidade_arranjo <- function() {
     k_levels <- paste0('k = ',scales::percent(cutoffs,accuracy = 1,decimal.mark = ','))
     dt |>
@@ -669,9 +703,9 @@ analyse_mpi <- function(
       ggplot2::theme(panel.grid.major.x = ggplot2::element_blank(), panel.spacing = ggplot2::unit(1.2,'lines')) +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1,override.aes = list(linewidth = 2.5)))
   }
-
+  
   # 6.4 Composição -------------------------------------------------------------
-
+  
   .plot_composicao <- function() {
     .composicao_dados('ano') |>
       dplyr::mutate(dimensao = factor(dimensao,levels = ordem_dim)) |>
@@ -686,7 +720,7 @@ analyse_mpi <- function(
                     x = NULL,y = NULL,fill = NULL,caption = caption_base) +
       theme_artigo() + ggplot2::theme(panel.grid.major.x = ggplot2::element_blank())
   }
-
+  
   .plot_composicao_arranjo <- function() {
     .composicao_dados(c('ano', 'arranjo_full')) |>
       dplyr::filter(ano %in% anos_comp) |>
@@ -719,7 +753,7 @@ analyse_mpi <- function(
         panel.spacing.x = ggplot2::unit(0.5,'lines'), panel.spacing.y = ggplot2::unit(2,'lines')
       )
   }
-
+  
   .plot_contribuicao_ind <- function() {
     dt |>
       dplyr::mutate(periodo = dplyr::if_else(ano <= 2015,'pnad', 'pnadc')) |>
@@ -749,7 +783,7 @@ analyse_mpi <- function(
       theme_artigo() +
       ggplot2::theme(panel.grid.major.x = ggplot2::element_blank(), panel.spacing = ggplot2::unit(1.2,'lines'))
   }
-
+  
   .plot_contrib_macro_serie <- function() {
     dt |>
       dplyr::mutate(macro = factor(macro_map[uf],levels = niveis_macro)) |>
@@ -773,7 +807,7 @@ analyse_mpi <- function(
       theme_artigo() + ggplot2::theme(panel.grid.major.x = ggplot2::element_blank()) +
       ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1))
   }
-
+  
   .plot_contrib_macro_relativa <- function() {
     dt |>
       dplyr::mutate(macro = factor(macro_map[uf],levels = niveis_macro)) |>
@@ -800,11 +834,11 @@ analyse_mpi <- function(
       theme_artigo() + ggplot2::theme(panel.grid.major.x = ggplot2::element_blank()) +
       ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1))
   }
-
+  
   .plot_contrib_uf_ranking <- function() {
-
+    
     top_n     <- 27
-
+    
     # MPI por UF × ano
     mpi_uf <- dt |>
       dplyr::filter(ano %in% anos_tabs) |>
@@ -816,20 +850,20 @@ analyse_mpi <- function(
         MPI = 100 * H * A,
         .by = c(ano, uf, macro)
       )
-
+    
     # Ranking por ano — rank 1 = maior MPI
     ranking <- mpi_uf |>
       dplyr::mutate(rank = dplyr::min_rank(dplyr::desc(MPI)), .by = ano)
-
+    
     # União das UFs que entraram no top-N em qualquer ano
     ufs_union <- ranking |>
       dplyr::filter(rank <= top_n) |>
       dplyr::distinct(uf)
-
+    
     # Macro de cada UF (invariante ao ano)
     macro_uf <- mpi_uf |>
       dplyr::distinct(uf, macro)
-
+    
     # Grade completa: todos os anos × todas as UFs da união
     # rank = NA quando a UF não está no top-N → quebra a linha
     dados <- tidyr::expand_grid(ano = anos_tabs, uf = ufs_union$uf) |>
@@ -839,9 +873,9 @@ analyse_mpi <- function(
       ) |>
       dplyr::left_join(macro_uf, by = 'uf') |>
       dplyr::mutate(macro = factor(macro, levels = niveis_macro))
-
+    
     anos_label <- range(anos_tabs)
-
+    
     dados |>
       ggplot2::ggplot(ggplot2::aes(x = ano, y = rank, color = macro, group = uf)) +
       ggplot2::geom_line(linewidth = 0.9, na.rm = T) +
@@ -889,7 +923,7 @@ analyse_mpi <- function(
         color = ggplot2::guide_legend(nrow = 1, override.aes = list(linewidth = 2.5))
       )
   }
-
+  
   .plot_contrib_arranjo_serie <- function() {
     dt |>
       dplyr::mutate(tipo_arranjo = factor(.tipo_arranjo_map[as.character(arranjo_full)],levels = niveis_tipo)) |>
@@ -914,9 +948,9 @@ analyse_mpi <- function(
       theme_artigo() + ggplot2::theme(panel.grid.major.x = ggplot2::element_blank()) +
       ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1))
   }
-
+  
   # 6.5 Mapas ------------------------------------------------------------------
-
+  
   .mapa_uf <- function(ano_ref) {
     ano_geo  <- .ano_para_shapefile(ano_ref)
     uf_geo   <- shapefiles[[as.character(ano_geo)]]
@@ -943,7 +977,7 @@ analyse_mpi <- function(
       ggplot2::labs(title = paste0('Score médio de privação por arranjo domiciliar: ',ano_ref), caption = caption_base) +
       theme_mapa()
   }
-
+  
   .plot_delta_mpi_uf <- function() {
     uf_geo <- shapefiles[['2020']]
     mpi_uf <- dt |>
@@ -969,11 +1003,11 @@ analyse_mpi <- function(
         subtitle = paste0('Diferença absoluta em pontos percentuais (k = ',k_ref,')'), caption = caption_base
       ) + theme_mapa()
   }
-
+  
   .plot_ranking_uf <- function() {
     # UFs ordenadas pelo ano mais recente
     ano_ord <- max(anos_maps)
-
+    
     dados <- dt |>
       dplyr::filter(ano %in% anos_maps) |>
       dplyr::summarise(
@@ -983,12 +1017,12 @@ analyse_mpi <- function(
         .by = c(ano, uf)
       ) |>
       dplyr::mutate(macro = factor(macro_map[uf], levels = niveis_macro))
-
+    
     ordem_uf <- dados |>
       dplyr::filter(ano  ==  ano_ord) |>
       dplyr::arrange(MPI) |>
       dplyr::pull(uf)
-
+    
     dados |>
       dplyr::mutate(
         uf  = factor(uf, levels = ordem_uf),
@@ -1021,9 +1055,9 @@ analyse_mpi <- function(
       ) +
       ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1))
   }
-
+  
   # 6.6 Convergência -----------------------------------------------------------
-
+  
   .plot_sigma_convergencia <- function() {
     dados <- .mpi_uf_serie() |>
       dplyr::summarise(
@@ -1033,10 +1067,10 @@ analyse_mpi <- function(
         .by = ano
       ) |>
       dplyr::arrange(ano)
-
+    
     # Fator linear que mapeia CV no eixo do DP para o eixo secundário
     fator <- max(dados$dp, na.rm = T) / max(dados$cv, na.rm = T)
-
+    
     dados |>
       dplyr::mutate(cv_scaled = cv * fator) |>
       ggplot2::ggplot(ggplot2::aes(x = ano)) +
@@ -1071,7 +1105,7 @@ analyse_mpi <- function(
       theme_artigo() +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1, override.aes = list(linewidth = 2.5)))
   }
-
+  
   .plot_beta_convergencia <- function() {
     serie <- .mpi_uf_serie()
     base  <- dplyr::inner_join(
@@ -1079,12 +1113,12 @@ analyse_mpi <- function(
       serie |> dplyr::filter(ano == max(anos_beta)) |> dplyr::select(uf,mpi_fim = MPI),
       by = 'uf'
     ) |> dplyr::mutate(delta = mpi_fim-mpi_ini)
-
+    
     modelo <- lm(delta~mpi_ini,data = base)
     r2     <- summary(modelo)$r.squared
     b1     <- coef(modelo)[['mpi_ini']]
     sinal  <- if(b1<0) 'Convergência (β < 0)' else 'Divergência (β > 0)'
-
+    
     base |>
       ggplot2::ggplot(ggplot2::aes(x = mpi_ini,y = delta)) +
       ggplot2::geom_hline(yintercept = 0,linetype = 'dashed',color = 'grey60',linewidth = 0.5) +
@@ -1111,7 +1145,7 @@ analyse_mpi <- function(
       ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0,hjust = 0.5)) +
       ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1,override.aes = list(size = 4)))
   }
-
+  
   .plot_beta_conv_periodos <- function() {
     
     anos_dt   <- sort(unique(dt$ano))
@@ -1234,7 +1268,7 @@ analyse_mpi <- function(
   }
   
   # 6.7 Granularidade ----------------------------------------------------------
-
+  
   .plot_heatmap_ind_ano <- function() {
     .privacao_ind_ano() |>
       dplyr::mutate(label_ind = factor(label_ind,levels = rev(labels_ind[ordem_ind]))) |>
@@ -1260,7 +1294,7 @@ analyse_mpi <- function(
         strip.placement = 'outside', panel.grid = ggplot2::element_blank()
       )
   }
-
+  
   .plot_heatmap_ind_uf <- function(ano_ref = max(anos_maps)) {
     periodo_ref <- if(ano_ref <= 2015) 'pnad' else 'pnadc'
     indicadores <- names(dim_map)
@@ -1271,7 +1305,7 @@ analyse_mpi <- function(
         A = weighted.mean(score[score >= k_ref],w = peso[score >= k_ref],na.rm = T),
         MPI = H*A, .by = uf
       ) |> dplyr::arrange(MPI) |> dplyr::pull(uf)
-
+    
     dt |>
       dplyr::filter(ano == ano_ref) |>
       dplyr::reframe(dplyr::across(dplyr::any_of(indicadores),\(x) weighted.mean(x,w = peso,na.rm = T)), .by = uf) |>
@@ -1306,7 +1340,7 @@ analyse_mpi <- function(
         strip.placement = 'outside', panel.grid = ggplot2::element_blank()
       )
   }
-
+  
   .plot_coocorrencia <- function(ano_ref = max(anos_maps)) {
     indicadores <- names(dim_map)
     periodo_ref <- if(ano_ref <= 2015) 'pnad' else 'pnadc'
@@ -1346,7 +1380,7 @@ analyse_mpi <- function(
         strip.placement = 'outside', panel.grid = ggplot2::element_blank(), panel.spacing = ggplot2::unit(0.6,'lines')
       )
   }
-
+  
   .plot_coocorrencia_serie <- function() {
     pares_sel <- list(c('E1', 'P1'),c('E1', 'V1'),c('D1', 'B1'),c('D3', 'B3'),c('P1', 'V1'))
     purrr::map(pares_sel,\(par){
@@ -1371,15 +1405,12 @@ analyse_mpi <- function(
       theme_artigo() +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 2,override.aes = list(linewidth = 2.5)))
   }
-
+  
   # 6.8 Densidade --------------------------------------------------------------
-
+  
   .plot_curva_incidencia <- function() {
     ks <- seq(0,1, length.out = 500)
-    cores_anos <- setNames(
-      colorRampPalette(RColorBrewer::brewer.pal(11, 'Spectral'))(length(anos_dens)),
-      as.character(sort(anos_dens))
-    )
+    cores_anos <- .gerar_cores_anos(anos_dens)
     purrr::map(anos_dens,\(yr){
       sub <- dt[ano == yr]
       purrr::map(ks,\(k) tibble::tibble(ano = yr,k = k,H = 100*weighted.mean(sub$score >= k,w = sub$peso,na.rm = T))) |>
@@ -1401,7 +1432,7 @@ analyse_mpi <- function(
       ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0,hjust = 0.5)) +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1,override.aes = list(linewidth = 2.5)))
   }
-
+  
   .plot_densidade_score <- function() {
     cores_todos <- setNames(
       colorRampPalette(c('#4a148c', '#f9a825', '#e65100'))(length(anos_dens)),
@@ -1438,7 +1469,7 @@ analyse_mpi <- function(
       ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5)) +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 2, override.aes = list(linewidth = 2.5)))
   }
-
+  
   .plot_densidade_score_grupo <- function(ano_ref = max(anos_maps)) {
     dt[ano  ==  ano_ref] |>
       dplyr::mutate(
@@ -1472,14 +1503,14 @@ analyse_mpi <- function(
       ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5)) +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1, override.aes = list(linewidth = 2.5)))
   }
-
+  
   # 6.9 Decomposição -----------------------------------------------------------
-
+  
   .plot_decomp_pares <- function() {
     serie <- .hamp_serie()
     # Níveis do factor construídos com o mesmo padrão do campo `par`
     niveis_par <- purrr::map_chr(anos_decp, \(p) paste0(p[1], ' → ', p[2]))
-
+    
     purrr::map(anos_decp, \(par) {
       t0 <- par[1]; t1 <- par[2]
       s0 <- serie[serie$ano  ==  t0, ]; s1 <- serie[serie$ano  ==  t1, ]
@@ -1510,7 +1541,7 @@ analyse_mpi <- function(
       ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0,hjust = 0.5), panel.grid.major.x = ggplot2::element_blank()) +
       ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1))
   }
-
+  
   .plot_decomp_acumulada <- function() {
     serie    <- .hamp_serie()
     anos_ord <- sort(unique(serie$ano))
@@ -1521,7 +1552,7 @@ analyse_mpi <- function(
     }) |>
       purrr::list_rbind() |>
       dplyr::mutate(ef_H_acum = cumsum(ef_H), ef_A_acum = cumsum(ef_A), mpi_acum = ef_H_acum+ef_A_acum)
-
+    
     decomp |>
       tidyr::pivot_longer(c(ef_H_acum,ef_A_acum),names_to = 'efeito',values_to = 'valor') |>
       dplyr::mutate(efeito = factor(efeito,levels = c('ef_H_acum', 'ef_A_acum'),
@@ -1544,9 +1575,9 @@ analyse_mpi <- function(
       theme_artigo() +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1,override.aes = list(linewidth = 2.5)),fill = 'none')
   }
-
+  
   # 6.10 Dominância estocástica ------------------------------------------------
-
+  
   .plot_dominancia_arranjo <- function(ano_ref = max(anos_maps)) {
     sub <- dt[ano == ano_ref] |>
       dplyr::mutate(tipo_arranjo = factor(.tipo_arranjo_map[as.character(arranjo_full)],levels = niveis_tipo)) |>
@@ -1566,7 +1597,7 @@ analyse_mpi <- function(
       theme_artigo() + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0,hjust = 0.5)) +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1,override.aes = list(linewidth = 2.5)))
   }
-
+  
   .plot_dominancia_macro <- function(ano_ref = max(anos_maps)) {
     sub <- dt[ano == ano_ref] |>
       dplyr::mutate(macro = factor(macro_map[uf],levels = niveis_macro)) |>
@@ -1586,14 +1617,11 @@ analyse_mpi <- function(
       theme_artigo() + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0,hjust = 0.5)) +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1,override.aes = list(linewidth = 2.5)))
   }
-
+  
   # 6.11 Concentração ----------------------------------------------------------
-
+  
   .plot_lorenz_serie <- function() {
-    cores_anos <- setNames(
-      colorRampPalette(c('#b71c1c', '#e65100', '#7cb342', '#1b5e20'))(length(anos_dens)),
-      as.character(sort(anos_dens))
-    )
+    cores_anos <- .gerar_cores_anos(anos_dens)
     purrr::map(anos_dens,\(yr){
       sub <- dt[ano == yr & !is.na(score) & !is.na(peso)]
       .lorenz_ponderada(sub$score,sub$peso) |> dplyr::mutate(ano = as.character(yr))
@@ -1613,7 +1641,7 @@ analyse_mpi <- function(
       ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0,hjust = 0.5), aspect.ratio = 1) +
       ggplot2::guides(color = ggplot2::guide_legend(nrow = 1,override.aes = list(linewidth = 2.5)))
   }
-
+  
   .plot_gini_serie <- function() {
     dt |>
       dplyr::filter(!is.na(score)&!is.na(peso)) |>
@@ -1630,7 +1658,7 @@ analyse_mpi <- function(
                     x = NULL,y = 'Gini da privação',caption = caption_base) +
       theme_artigo()
   }
-
+  
   .plot_lorenz_grupo <- function(atributo = 'tipo_arranjo') {
     
     n      <- length(anos_maps)
@@ -1654,7 +1682,7 @@ analyse_mpi <- function(
       dt_grp <- dt |>
         dplyr::mutate(grupo = factor(macro_map[uf], levels = niveis_macro))
     }
-
+    
     purrr::map(anos_maps, \(yr) {
       purrr::map(niveis, \(grp) {
         d <- dt_grp[ano == yr & grupo == grp & is.finite(score) & is.finite(peso)]
@@ -1713,21 +1741,21 @@ analyse_mpi <- function(
       base   <- dt |> dplyr::mutate(grupo = factor(macro_map[uf], levels = niveis_macro))
       cores  <- cores_macro
     }
-
+    
     # Gini por grupo
     por_grupo <- base |>
       dplyr::filter(!is.na(grupo) & is.finite(score) & is.finite(peso)) |>
       dplyr::reframe(gini = .gini_ponderado(score, peso), .by = c(ano, grupo)) |>
       dplyr::mutate(serie = as.character(grupo))
-
+    
     # Gini total
     total <- dt |>
       dplyr::filter(is.finite(score) & is.finite(peso)) |>
       dplyr::reframe(gini = .gini_ponderado(score, peso), .by = ano) |>
       dplyr::mutate(serie = 'Total')
-
+    
     cores_plot <- c(cores, 'Total' = 'grey30')
-
+    
     dplyr::bind_rows(por_grupo, total) |>
       dplyr::arrange(ano) |>
       ggplot2::ggplot(ggplot2::aes(x = ano, y = gini, color = serie, group = serie)) +
@@ -1755,7 +1783,7 @@ analyse_mpi <- function(
         color = ggplot2::guide_legend(nrow = 1, override.aes = list(linewidth = 2.5))
       )
   }
-
+  
   ############################### GRÁFICOS NOVOS ###############################
   
   # ── 1. Variação do MPI por UF — 8 mapas (um por arranjo/sexo) ────────────────
@@ -1948,10 +1976,7 @@ analyse_mpi <- function(
     anos_ref <- anos_dens[seq(1, length(anos_dens), length.out = min(3, length(anos_dens)))] |>
       round() |> as.integer()
     
-    cores_anos <- setNames(
-      colorRampPalette(c('#b71c1c', '#f9a825', '#1b5e20'))(length(anos_ref)),
-      as.character(anos_ref)
-    )
+    cores_anos <- .gerar_cores_anos(anos_dens)
     
     base <- dt |>
       dplyr::filter(ano %in% anos_ref, !is.na(score), !is.na(peso), is.finite(score)) |>
@@ -2017,10 +2042,10 @@ analyse_mpi <- function(
   
   # == 7. Registry =============================================================
   # Tamanhos padronizados (cm) — referência: página A4 landscape com margem de 2cm
-
+  
   .w <- 48
   .h <- 32
-
+  
   registry <- c(
     #Estaticos
     list(
@@ -2032,18 +2057,18 @@ analyse_mpi <- function(
       plot_contrib_macro_relat   = list(fun = .plot_contrib_macro_relativa,               w = .w,  h = .h,  type = 'gg', grupo = 'composicao'),
       plot_contrib_uf_ranking    = list(fun = .plot_contrib_uf_ranking,                   w = .w,  h = .h,  type = 'gg', grupo = 'composicao'),
       plot_contrib_arranjo_serie = list(fun = .plot_contrib_arranjo_serie,                w = .w,  h = .h,  type = 'gg', grupo = 'composicao'),
-
+      
       plot_score_mpi             = list(fun = .plot_score_mpi,                            w = .w,  h = .h,  type = 'gg', grupo = 'evolucao'),
       plot_h_a_mpi               = list(fun = .plot_h_a_mpi,                              w = .w,  h = .h,  type = 'gg', grupo = 'evolucao'),
       plot_mpi_macrorregiao      = list(fun = .plot_mpi_macrorregiao,                     w = .w,  h = .h,  type = 'gg', grupo = 'evolucao'),
-
+      
       tab_sensibilidade          = list(fun = .tab_sensibilidade,                         w = .w,  h = .h,  type = 'gt', grupo = 'sensibilidade'),
       plot_sensibilidade         = list(fun = .plot_sensibilidade,                        w = .w,  h = .h,  type = 'gg', grupo = 'sensibilidade'),
       plot_sensibilidade_arranjo = list(fun = .plot_sensibilidade_arranjo,                w = .w,  h = .h,  type = 'gg', grupo = 'sensibilidade'),
-
+      
       plot_decomp_pares          = list(fun = .plot_decomp_pares,                         w = .w,  h = .h,  type = 'gg', grupo = 'decomposicao'),
       plot_decomp_acumulada      = list(fun = .plot_decomp_acumulada,                     w = .w,  h = .h,  type = 'gg', grupo = 'decomposicao'),
-
+      
       plot_sigma_convergencia    = list(fun = .plot_sigma_convergencia,                   w = .w,  h = .h,  type = 'gg', grupo = 'convergencia'),
       plot_beta_convergencia     = list(fun = .plot_beta_convergencia,                    w = .w,  h = .h,  type = 'gg', grupo = 'convergencia'),
       plot_beta_conv_periodos    = list(fun = .plot_beta_conv_periodos,                   w = .w,  h = .h,  type = 'gg', grupo = 'convergencia'),
@@ -2051,9 +2076,9 @@ analyse_mpi <- function(
       
       plot_heatmap_ind_ano       = list(fun = .plot_heatmap_ind_ano,                      w = .w,  h = .h,  type = 'gg', grupo = 'granularidade'),
       plot_coocorrencia_serie    = list(fun = .plot_coocorrencia_serie,                   w = .w,  h = .h,  type = 'gg', grupo = 'granularidade'),
-
+      
       tab_auc_arranjo            = list(fun = .tab_auc_arranjo,                           w = .w,  h = .h,  type = 'gt', grupo = 'dominancia'),
-
+      
       plot_curva_incidencia      = list(fun = .plot_curva_incidencia,                     w = .w,  h = .h,  type = 'gg', grupo = 'densidade'),
       plot_densidade_score       = list(fun = .plot_densidade_score,                      w = .w,  h = .h,  type = 'gg', grupo = 'densidade'),
       plot_densidade_arranjo8    = list(fun = .plot_densidade_arranjo8,                   w = .w,  h = .h,  type = 'gg', grupo = 'densidade'),
@@ -2074,7 +2099,7 @@ analyse_mpi <- function(
       purrr::map(anos_maps,\(yr)   list(fun = \() .mapa_uf(yr),                           w = .w,  h = .h,  type = 'gg', grupo = 'mapas')),
       paste0('mapa_', anos_maps)
     ),
-
+    
     purrr::set_names(
       purrr::map(anos_maps,\(yr)   list(fun = \() .plot_heatmap_ind_uf(yr),               w = .w,  h = .h,  type = 'gg', grupo = 'granularidade')),
       paste0('heatmap_ind_uf_', anos_maps)
@@ -2083,12 +2108,12 @@ analyse_mpi <- function(
       purrr::map(anos_maps,\(yr)   list(fun = \() .plot_coocorrencia(yr),                 w = .w,  h = .h,  type = 'gg', grupo = 'granularidade')),
       paste0('coocorrencia_', anos_maps)
     ),
-
+    
     purrr::set_names(
       purrr::map(anos_maps,\(yr)   list(fun = \() .plot_densidade_score_grupo(yr),        w = .w,  h = .h,  type = 'gg', grupo = 'densidade')),
       paste0('densidade_grupo_', anos_maps)
     ),
-
+    
     purrr::set_names(
       purrr::map(anos_maps,\(yr)   list(fun = \() .plot_dominancia_arranjo(yr),           w = .w,  h = .h,  type = 'gg', grupo = 'dominancia')),
       paste0('dominancia_arranjo_', anos_maps)
@@ -2102,30 +2127,48 @@ analyse_mpi <- function(
       paste0('dominancia_macro_', anos_maps)
     )
   )
-
-
+  
+  
   # == 8. Filtro por grupos e validação  =======================================
-
+  
   grupos_sel <- if (identical(grupos,'all')) grupos_validos else grupos
   targets    <- names(registry)[purrr::map_chr(registry,'grupo') %in% grupos_sel]
-
+  
   if (length(targets)  ==  0) {
     warning('Nenhum output encontrado para os grupos selecionados.')
     return(invisible(list()))
   }
-
+  
   if (verbose) {
     message('Grupos selecionados: ', paste(grupos_sel, collapse = ', '))
     message('Outputs a gerar: ', length(targets))
   }
-
-
+  
+  
   # == 9. Renderização e exportação ============================================
+  
+  .salvar_output <- function(obj, nm, entry) {
+    path <- fs::path(dir_out, paste0(nm, '.', ext))
+    
+    if (entry$type == 'gt') {
+      gt::gtsave(obj, filename = path, zoom = 4, expand = 10)
+    } else {
+      ggplot2::ggsave(
+        filename = path, 
+        plot = obj,
+        width = entry$w, 
+        height = entry$h,
+        units = 'cm', 
+        dpi = dpi, 
+        bg = 'white', 
+        limitsize = FALSE
+      )
+    }
+    
+    if (verbose) message('  Salvo: ', nm)
+  }
 
-  # ── 9. Renderização e exportação ─────────────────────────────────────────────
-  results    <- vector('list', length(targets)) |> setNames(targets)
-  targets_gt <- targets[purrr::map_chr(registry[targets], 'type') == 'gt']
-  targets_gg <- targets[purrr::map_chr(registry[targets], 'type') == 'gg']
+  results <- vector('list', length(targets)) |> setNames(targets)
   
   handler_ant <- progressr::handlers()
   progressr::handlers(progressr::handler_progress(
@@ -2135,34 +2178,17 @@ analyse_mpi <- function(
   
   progressr::with_progress({
     
-    p <- progressr::progressor(steps = length(targets_gt) + length(targets_gg))
+    p <- progressr::progressor(steps = length(targets))
     
-    # Tabelas
-    for (nm in targets_gt) {
+    for (nm in targets) {
       p(message = nm)
       tryCatch({
-        obj  <- registry[[nm]]$fun()
-        path <- fs::path(dir_out, paste0(nm, '.', ext))
-        gt::gtsave(obj, filename = path, zoom = 4, expand = 10)
+        obj <- registry[[nm]]$fun()
+        .salvar_output(obj, nm, registry[[nm]])  # type é detectado internamente
         results[[nm]] <- obj
-      }, error = \(e) message('\n[ERRO] ', nm, ': ', conditionMessage(e)))
-    }
-    
-    # Graficos
-    for (nm in targets_gg) {
-      p(message = nm)
-      tryCatch({
-        obj  <- registry[[nm]]$fun()
-        path <- fs::path(dir_out, paste0(nm, '.', ext))
-        ggplot2::ggsave(
-          filename  = path, plot = obj,
-          width     = registry[[nm]]$w,
-          height    = registry[[nm]]$h,
-          units     = 'cm', dpi = dpi, bg = 'white',
-          limitsize = FALSE
-        )
-        results[[nm]] <- obj
-      }, error = \(e) message('\n[ERRO] ', nm, ': ', conditionMessage(e)))
+      }, error = function(e) {
+        message('\n[ERRO] ', nm, ': ', conditionMessage(e))
+      })
     }
     
   })

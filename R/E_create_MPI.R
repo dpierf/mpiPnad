@@ -52,13 +52,15 @@ create_mpi <- function(
     ks          = c(0.10, 0.20, 0.25, 0.33, 0.40, 0.50),
     anos        = NULL
 ) {
-
+  
   # Atalho: se os arquivos finais já existem, carrega e retorna ----
   dict_file <- 'data/mpi_dictionary.rds'
   if (fs::file_exists(output_file) && fs::file_exists(dict_file)) {
     cli::cli_alert_info('Arquivos encontrados: carregando sem reprocessar')
-    mpi_pnad <<- arrow::read_parquet(output_file) |> data.table::setDT()
-    dicts    <<- readRDS(dict_file)
+    return(list(
+      mpi_pnad = arrow::read_parquet(output_file) |> data.table::setDT(),
+      dicts = readRDS(dict_file)
+    ))
     cli::cli_alert_success('Base completa e dicionário carregados no ambiente global')
     return(invisible(mpi_pnad))
   }
@@ -67,37 +69,46 @@ create_mpi <- function(
   
   plano_anterior    <- future::plan()
   handler_anterior  <- progressr::handlers()
-
-  future::plan(multisession, workers = parallelly::availableCores() - 1)
+  
+  n_workers <- max(1, parallelly::availableCores() - 1)
+  future::plan(multisession, workers = n_workers)
   progressr::handlers(progressr::handler_progress(
     format = '[:bar] :current/:total arquivos | :message | :eta restante'
   ))
-
+  
   on.exit({
     future::plan(plano_anterior)
     progressr::handlers(handler_anterior)
   }, add = TRUE)
-
+  
   sm_real <- .get_sm_real()
-
+  
   cli::cli_h1('Carregando arquivos')
   
   arquivos <- fs::dir_ls(input_dir, glob = '*_filtered.parquet')
-
+  
+  if (length(arquivos) == 0) {
+    stop('Nenhum arquivo .parquet encontrado em ', input_dir)
+  }
+  
   if (!is.null(anos)) {
     arquivos <- purrr::keep(
       arquivos,
       \(f) as.integer(stringr::str_extract(f, '\\d{4}')) %in% anos
     )
   }
-
+  
+  if (length(arquivos) == 0) {
+    stop('Nenhum arquivo encontrado para os anos especificados')
+  }
+  
   cutoffs <- setNames(ks, paste0('pobre_k', ks * 100))
-
+  
   with_progress({
     p <- progressor(along = arquivos)
-
+    
     resultado <- future_map(arquivos, \(arquivo) {
-
+      
       ano_arq  <- stringr::str_extract(arquivo, '\\d{4}') |> as.integer()
       is_pnadc <- stringr::str_detect(arquivo, 'pnadc')
       type_arq <- if (is_pnadc) 'continua' else 'anual'
@@ -112,9 +123,9 @@ create_mpi <- function(
           !!!purrr::imap(cutoffs, \(k, nm) rlang::expr(as.integer(score >= !!k)))
         )
       
-    }) |> list_rbind()
+    }) |> data.table::rbindlist(fill = TRUE)
   })
-
+  
   cli::cli_alert_success('Arquivos filtrados carregados com sucesso')
   
   cli::cli_h1('Preparando a base final')
@@ -127,7 +138,7 @@ create_mpi <- function(
       PB       = rpc_real >= sm_real / 4 & rpc_real < sm_real / 2,
       EP       = rpc_real >= 0           & rpc_real < sm_real / 4
     )
-
+  
   .mac <- c(AC=1L,AP=1L,AM=1L,PA=1L,RO=1L,RR=1L,TO=1L,
             AL=2L,BA=2L,CE=2L,MA=2L,PB=2L,PE=2L,PI=2L,RN=2L,SE=2L,
             ES=3L,MG=3L,RJ=3L,SP=3L,
@@ -166,7 +177,7 @@ create_mpi <- function(
             'rpc','multiplicador','sm_real','rpc_real','NP','VP','PB','EP')
   
   resultado_final <- resultado[, ..cols]
-
+  
   data.table::setkey(resultado_final, 
                      ano, periodo, regiao, uf, setor_dec, area_dec, sexo_dec, raca, arranjo_full)
   cli::cli_alert_success('Base final preparada com êxito')

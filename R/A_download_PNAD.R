@@ -1,12 +1,18 @@
 #' Baixa arquivos compactados da PNAD Anual a partir do CEM/USP
+#' 
 #' @param anos Vetor de anos a baixar (ex: c(1981, 1990, 2001))
 #' @param destino Pasta de destino (default: 'data/01_raw/pnad')
+#' @param timeout Tempo máximo de download em segundos (default: 300)
+#' @param force_redownload Se TRUE, baixa mesmo se arquivo existir (default: FALSE)
+#' @return Vetor de caminhos dos arquivos baixados (invisivelmente)
 #' @export
 
-download_pnad <- function(anos, destino = 'data/01_raw/pnad') {
+download_pnad <- function(anos, 
+                          destino = 'data/01_raw/pnad', 
+                          timeout = 300,
+                          force_redownload = FALSE) {
   
-  #Catalogo completo
-  
+  # Catálogos de URLs (mantive os seus)
   .cem_urls <- c(
     '1981' = 'https://centrodametropole.fflch.usp.br/pt-br/file/16141/download?token=jjkZtEOP',
     '1982' = 'https://centrodametropole.fflch.usp.br/pt-br/file/16142/download?token=WGa0eNI2',
@@ -44,8 +50,22 @@ download_pnad <- function(anos, destino = 'data/01_raw/pnad') {
     '2015' = '1ZAc0D3y4BF3s7o8vg_VsT7JscDkOKkpJ'
   )
   
-  anos_chr       <- as.character(anos)
-  todos_anos     <- union(names(.cem_urls), names(.gdrive_ids))
+  # Função auxiliar para detectar extensão via cabeçalho HTTP
+  detect_extensao_url <- function(url) {
+    headers <- tryCatch(
+      curlGetHeaders(url),
+      error = function(e) return(character(0))
+    )
+    if (length(headers) == 0) return('.rar')
+    
+    cd_line <- headers[grepl('content-disposition', headers, ignore.case = TRUE)]
+    ext <- regmatches(cd_line, regexpr('\\.(rar|zip|7z)', cd_line, ignore.case = TRUE))
+    if (length(ext) == 0) '.rar' else tolower(ext)
+  }
+  
+  # Validação dos anos
+  anos_chr <- as.character(anos)
+  todos_anos <- union(names(.cem_urls), names(.gdrive_ids))
   anos_invalidos <- setdiff(anos_chr, todos_anos)
   
   if (length(anos_invalidos) > 0) {
@@ -53,55 +73,83 @@ download_pnad <- function(anos, destino = 'data/01_raw/pnad') {
             paste(anos_invalidos, collapse = ', '))
   }
   
-  anos_cem    <- intersect(anos_chr, names(.cem_urls))
+  anos_cem <- intersect(anos_chr, names(.cem_urls))
   anos_gdrive <- intersect(anos_chr, names(.gdrive_ids))
   
+  # Cria diretório se não existir
   fs::dir_create(destino)
   
-  
-  #Downloads diretos (página do CEM)
-  if (length(anos_cem) > 0) {
-    purrr::walk2(.cem_urls[anos_cem], anos_cem, \(url, ano) {
-      headers <- curlGetHeaders(url)
-      cd_line <- headers[grepl('content-disposition', headers, ignore.case = TRUE)]
-      ext     <- regmatches(cd_line, regexpr('\\.(rar|zip|7z)', cd_line, ignore.case = TRUE))
-      ext     <- if (length(ext) == 0) '.rar' else tolower(ext)
+  # Função para baixar com retry
+  baixar_com_retry <- function(url, dest, max_tentativas = 3) {
+    for (tentativa in seq_len(max_tentativas)) {
+      resultado <- tryCatch({
+        download.file(url, destfile = dest, mode = 'wb', 
+                      quiet = FALSE, timeout = timeout)
+        TRUE
+      }, error = function(e) {
+        message("  Tentativa ", tentativa, " falhou: ", e$message)
+        FALSE
+      })
       
+      if (resultado) return(TRUE)
+      if (tentativa < max_tentativas) Sys.sleep(2)
+    }
+    stop("Falha ao baixar ", basename(dest), " após ", max_tentativas, " tentativas")
+  }
+  
+  # Downloads via CEM
+  if (length(anos_cem) > 0) {
+    purrr::walk2(.cem_urls[anos_cem], anos_cem, function(url, ano) {
+      ext <- detect_extensao_url(url)
       dest <- fs::path(destino, paste0('documentoPNAD_', ano, ext))
-      if (!fs::file_exists(dest)) {
+      
+      if (!fs::file_exists(dest) || force_redownload) {
+        if (force_redownload && fs::file_exists(dest)) {
+          fs::file_delete(dest)
+        }
         message('Baixando ', ano, ' via CEM (', ext, ')...')
-        download.file(url, destfile = dest, mode = 'wb', quiet = TRUE)
+        baixar_com_retry(url, dest)
       } else {
-        message(ano, ' ja existe, pulando.')
+        message(ano, ' já existe, pulando.')
       }
     })
   }
   
-  
-  #Downloads indiretos (links do Drive a partir do CEM)
+  # Downloads via Google Drive
   if (length(anos_gdrive) > 0) {
     googledrive::drive_deauth()
-    purrr::walk2(.gdrive_ids[anos_gdrive], anos_gdrive, \(id, ano) {
-      existentes <- fs::dir_ls(destino,
-                               regexp = paste0('PNAD_', ano, '\\.(rar|zip|7z)'))
-      if (length(existentes) == 0) {
+    
+    purrr::walk2(.gdrive_ids[anos_gdrive], anos_gdrive, function(id, ano) {
+      # CORRIGIDO: usar padrão correto 'documentoPNAD_'
+      existentes <- destino |>
+        fs::dir_ls(regexp = paste0('documentoPNAD_', ano, '\\.(rar|zip|7z)'))
+      
+      if (length(existentes) == 0 || force_redownload) {
+        if (force_redownload && length(existentes) > 0) {
+          fs::file_delete(existentes)
+        }
+        
         message('Baixando ', ano, ' via Google Drive...')
-        tmp  <- fs::file_temp()
+        tmp <- fs::file_temp()
         meta <- googledrive::drive_download(googledrive::as_id(id),
                                             path = tmp, overwrite = TRUE)
-        ext  <- switch(meta$drive_resource[[1]]$mimeType,
-                       'application/x-rar-compressed' = '.rar',
-                       'application/zip'              = '.zip',
-                       'application/x-7z-compressed'  = '.7z',
-                       '.rar')
+        
+        # Detecta extensão pelo MIME type
+        ext <- switch(meta$drive_resource[[1]]$mimeType,
+                      'application/x-rar-compressed' = '.rar',
+                      'application/zip' = '.zip',
+                      'application/x-7z-compressed' = '.7z',
+                      '.rar')
+        
         dest <- fs::path(destino, paste0('documentoPNAD_', ano, ext))
         fs::file_move(tmp, dest)
         message('  Salvo como ', fs::path_file(dest))
       } else {
-        message(ano, ' ja existe, pulando.')
+        message(ano, ' já existe, pulando.')
       }
     })
   }
   
+  # Retorna lista de arquivos baixados
   invisible(fs::dir_ls(destino, regexp = 'documentoPNAD_.*\\.(rar|zip|7z)'))
 }

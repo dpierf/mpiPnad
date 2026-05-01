@@ -17,10 +17,10 @@
 
 .rowcalc_impl_A <- function(dt) {
   
-  dt <- merge(dt, .sm_pnad, by = 'ano', all.x = TRUE)
+  .cols_existentes <- names(dt)
   
-  safe_col <- function(nm) {
-    if (nm %in% names(dt)) {
+  safe_get <- function(dt, nm) {
+    if (nm %in% .cols_existentes) {
       v <- dt[[nm]]
       if (is.numeric(v)) as.double(v) else v
     } else NA_real_
@@ -30,8 +30,8 @@
   
   # FILTRO DE RESPOSTA ----
   dt[, resposta := fcase(
-    ano %between% c(1981,1990), safe_col('v0107'),
-    ano %between% c(1992,2015), safe_col('v0104')
+    ano %between% c(1981,1990), safe_get(dt, 'v0107'),
+    ano %between% c(1992,2015), safe_get(dt, 'v0104')
   )]
   
   dt <- dt[(ano %between% c(1981,1990) & !is.na(resposta)) |
@@ -41,120 +41,120 @@
   # VARIAVEIS INTERMEDIARIAS ----
   dt[, `:=` (
     peso = fcase(
-      ano %between% c(1981,1989), safe_col('v9981'),
-      ano == 1990,                safe_col('v1091'),
-      ano %between% c(1992,2015), safe_col('v4729')
+      ano %between% c(1981,1989), safe_get(dt, 'v9981'),
+      ano == 1990,                safe_get(dt, 'v1091'),
+      ano %between% c(1992,2015), safe_get(dt, 'v4729')
     ),
     sexo_ref = fcase(
-      ano %between% c(1981,1990), safe_col('v0303'),
-      ano %between% c(1992,2015), safe_col('v0302')
+      ano %between% c(1981,1990), safe_get(dt, 'v0303'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0302')
     ),
     cor_ref = fcase(
-      ano == 1982,                safe_col('v6302'),
-      ano == 1986,                safe_col('v2201'),
-      ano %between% c(1987,1990), safe_col('v0304'),
-      ano %between% c(1992,2015), safe_col('v0404')
+      ano == 1982,                safe_get(dt, 'v6302'),
+      ano == 1986,                safe_get(dt, 'v2201'),
+      ano %between% c(1987,1990), safe_get(dt, 'v0304'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0404')
     ),
     uf_ref = fcase(
-      ano %between% c(1981,1990), safe_col('v0010'),
-      ano %between% c(1992,2015), safe_col('uf')
+      ano %between% c(1981,1990), safe_get(dt, 'v0010'),
+      ano %between% c(1992,2015), safe_get(dt, 'uf')
     ),
     local1 = fcase(
-      ano %between% c(1981,1990), safe_col('v0003'),
-      ano %between% c(1992,2015), safe_col('v4105')
+      ano %between% c(1981,1990), safe_get(dt, 'v0003'),
+      ano %between% c(1992,2015), safe_get(dt, 'v4105')
     ),
     local2 = fcase(
-      ano %between% c(1981,1990), safe_col('v0005'),
-      ano %between% c(1992,2015), safe_col('v4107')
+      ano %between% c(1981,1990), safe_get(dt, 'v0005'),
+      ano %between% c(1992,2015), safe_get(dt, 'v4107')
     ),
     num_familia = fcase(
-      ano %between% c(1981,1990), safe_col('v0307'),
-      ano %between% c(1992,2015), safe_col('v0403')
+      ano %between% c(1981,1990), safe_get(dt, 'v0307'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0403')
     ),
     cond_familia = fcase(
-      ano %between% c(1981,1990), safe_col('v0306'),
-      ano %between% c(1992,2015), safe_col('v0402')
+      ano %between% c(1981,1990), safe_get(dt, 'v0306'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0402')
     ),
     pessoas_dom = fcase(
-      ano %between% c(1981,1990), safe_col('v0107'),
-      ano %between% c(1992,2015), safe_col('v0105')
+      ano %between% c(1981,1990), safe_get(dt, 'v0107'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0105')
     ),
     comodos = fcase(
-      ano %between% c(1981,1990), safe_col('v0211'),
-      ano %between% c(1992,2015), safe_col('v0205')
+      ano %between% c(1981,1990), safe_get(dt, 'v0211'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0205')
     ),
     telhado = fcase(
-      ano %between% c(1981,1990), safe_col('v0205'),
-      ano %between% c(1992,2015), safe_col('v0204')
+      ano %between% c(1981,1990), safe_get(dt, 'v0205'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0204')
     ),
     posse = fcase(
-      ano %between% c(1981,1990), safe_col('v0212'),
-      ano %between% c(1992,2015), safe_col('v0207')
+      ano %between% c(1981,1990), safe_get(dt, 'v0212'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0207')
     ),
     luz = fcase(
-      ano %between% c(1981,1990), safe_col('v0210'),
-      ano %between% c(1992,2015), safe_col('v0219')
+      ano %between% c(1981,1990), safe_get(dt, 'v0210'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0219')
     ),
     lixo = fcase(
-      ano %between% c(1981,1990), safe_col('v0209'),
-      ano %between% c(1992,2015), safe_col('v0218')
+      ano %between% c(1981,1990), safe_get(dt, 'v0209'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0218')
     ),
     agua = fcase(
-      ano %between% c(1981,1990), safe_col('v0214'),
-      ano %between% c(1992,2015), safe_col('v0224')
+      ano %between% c(1981,1990), safe_get(dt, 'v0214'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0224')
     ),
     renda_raw = fcase(
-      ano %between% c(1981,1990), as.numeric(safe_col('v0410')),
-      ano %between% c(1992,2015), as.numeric(safe_col('v4614'))
+      ano %between% c(1981,1990), as.numeric(safe_get(dt, 'v0410')),
+      ano %between% c(1992,2015), as.numeric(safe_get(dt, 'v4614'))
     ),
     geladeira = fcase(
-      ano %between% c(1981,1990), safe_col('v0216'),
-      ano %between% c(1992,2015), safe_col('v0228')
+      ano %between% c(1981,1990), safe_get(dt, 'v0216'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0228')
     ),
     fogao = fcase(
-      ano %between% c(1981,1990), safe_col('v0207'),
-      ano %between% c(1992,2015), pmin(safe_col('v0221'), safe_col('v0222'), na.rm = TRUE)
+      ano %between% c(1981,1990), safe_get(dt, 'v0207'),
+      ano %between% c(1992,2015), pmin(safe_get(dt, 'v0221'), safe_get(dt, 'v0222'), na.rm = TRUE)
     ),
     idade = fcase(
-      ano %between% c(1981,1990), safe_col('v0805'),
-      ano %between% c(1992,2015), safe_col('v8005')
+      ano %between% c(1981,1990), safe_get(dt, 'v0805'),
+      ano %between% c(1992,2015), safe_get(dt, 'v8005')
     ),
     freq = fcase(
-      ano %between% c(1981,1990), safe_col('v0314'),
-      ano %between% c(1992,2015), safe_col('v0602')
+      ano %between% c(1981,1990), safe_get(dt, 'v0314'),
+      ano %between% c(1992,2015), safe_get(dt, 'v0602')
     ),
     anos = fcase(
-      ano %between% c(1981,1990), safe_col('v0318'),
-      ano %between% c(1992,2006), safe_col('v4703'),
-      ano %between% c(2007,2015), safe_col('v4803')
+      ano %between% c(1981,1990), safe_get(dt, 'v0318'),
+      ano %between% c(1992,2006), safe_get(dt, 'v4703'),
+      ano %between% c(2007,2015), safe_get(dt, 'v4803')
     ),
     ocup = fcase(
-      ano == 2001,                safe_col('v4755'),
-      ano %between% c(1981,1990), safe_col('v0501'),
-      ano %between% c(1992,2006), safe_col('v4705'),
-      ano %between% c(2007,2015), safe_col('v4805')
+      ano == 2001,                safe_get(dt, 'v4755'),
+      ano %between% c(1981,1990), safe_get(dt, 'v0501'),
+      ano %between% c(1992,2006), safe_get(dt, 'v4705'),
+      ano %between% c(2007,2015), safe_get(dt, 'v4805')
     ),
     remun = fcase(
-      ano == 2001,                safe_col('v4756'),
-      ano %between% c(1981,1990), safe_col('v0505'),
-      ano %between% c(1992,2015), safe_col('v4706')
+      ano == 2001,                safe_get(dt, 'v4756'),
+      ano %between% c(1981,1990), safe_get(dt, 'v0505'),
+      ano %between% c(1992,2015), safe_get(dt, 'v4706')
     ),
     ativo = fcase(
-      ano == 2001, safe_col('v4754'),
-      default =    safe_col('v4704')
+      ano == 2001, safe_get(dt, 'v4754'),
+      default =    safe_get(dt, 'v4704')
     ),
     inss = fcase(
-      ano == 2001,                safe_col('v4761'),
-      ano %between% c(1981,1990), safe_col('v0511'),
-      ano %between% c(1992,2015), safe_col('v4711')
+      ano == 2001,                safe_get(dt, 'v4761'),
+      ano %between% c(1981,1990), safe_get(dt, 'v0511'),
+      ano %between% c(1992,2015), safe_get(dt, 'v4711')
     ),
     apos = fcase(
-      ano %between% c(1981,1990), safe_col('v5280'),
-      ano %between% c(1992,2015), safe_col('v9122')
+      ano %between% c(1981,1990), safe_get(dt, 'v5280'),
+      ano %between% c(1992,2015), safe_get(dt, 'v9122')
     ),
     pens = fcase(
-      ano %between% c(1981,1990), safe_col('v5281'),
-      ano %between% c(1992,2015), safe_col('v9123')
+      ano %between% c(1981,1990), safe_get(dt, 'v5281'),
+      ano %between% c(1992,2015), safe_get(dt, 'v9123')
     )
   )]
   
@@ -164,14 +164,14 @@
   
   dt[, `:=`(
     psu = fcase(
-      ano %in% c(1983, 1990),      as.character(safe_col('v0103')),
-      ano %between% c(1992, 2015), as.character(safe_col('v4618')),
-      ano %between% c(1981, 1989), .psu(safe_col('v0101'))
+      ano %in% c(1983, 1990),      as.character(safe_get(dt, 'v0103')),
+      ano %between% c(1992, 2015), as.character(safe_get(dt, 'v4618')),
+      ano %between% c(1981, 1989), .psu(safe_get(dt, 'v0101'))
     ),
     strata = fcase(
-      ano %in% c(1983, 1990),      as.character(safe_col('v0102')),
-      ano %between% c(1992, 2015), as.character(safe_col('v4617')),
-      ano %between% c(1981, 1989), .str(safe_col('v0101'))
+      ano %in% c(1983, 1990),      as.character(safe_get(dt, 'v0102')),
+      ano %between% c(1992, 2015), as.character(safe_get(dt, 'v4617')),
+      ano %between% c(1981, 1989), .str(safe_get(dt, 'v0101'))
     )
   )]
   
@@ -274,15 +274,15 @@
   # GRUPO D - MORADIA ----
   dt[, `:=`(
     d1a = fcase(
-      is.na(safe_col('v0203')) | safe_col('v0203') == 9,           NA_real_,
-      ano %between% c(1981,1990) & safe_col('v0203') %in% c(0,2),  0,
-      ano %between% c(1992,2015) & safe_col('v0203') %in% c(1,2),  0,
+      is.na(safe_get(dt, 'v0203')) | safe_get(dt, 'v0203') == 9,           NA_real_,
+      ano %between% c(1981,1990) & safe_get(dt, 'v0203') %in% c(0,2),  0,
+      ano %between% c(1992,2015) & safe_get(dt, 'v0203') %in% c(1,2),  0,
       default = 1
     ),
     d1b = fcase(
       ano > 1990,                                                   NA_real_,
-      is.na(safe_col('v0204')) | safe_col('v0204') == 9,            NA_real_,
-      safe_col('v0204') %in% c(1,3,5),                              0,
+      is.na(safe_get(dt, 'v0204')) | safe_get(dt, 'v0204') == 9,            NA_real_,
+      safe_get(dt, 'v0204') %in% c(1,3,5),                              0,
       default = 1
     ),
     d1c = fcase(
@@ -319,35 +319,35 @@
   
   # GRUPO B - SERVICOS BASICOS ----
   dt[, B1 := fcase(
-    ano %between% c(1981,1990) & (is.na(safe_col('v0206')) | safe_col('v0206') == 9),                              NA_real_,
-    ano %between% c(1981,1990) & safe_col('v0206') == 1         & setor == 'U',                                    0,
-    ano %between% c(1981,1990) & safe_col('v0206') %in% c(1,2) & setor == 'R',                                    0,
-    ano %between% c(1981,1990) & safe_col('v0206') == 4         & setor == 'U',                                    0.5,
-    ano %between% c(1981,1990) & safe_col('v0206') %in% c(4,5) & setor == 'R',                                    0.5,
+    ano %between% c(1981,1990) & (is.na(safe_get(dt, 'v0206')) | safe_get(dt, 'v0206') == 9),                              NA_real_,
+    ano %between% c(1981,1990) & safe_get(dt, 'v0206') == 1         & setor == 'U',                                    0,
+    ano %between% c(1981,1990) & safe_get(dt, 'v0206') %in% c(1,2) & setor == 'R',                                    0,
+    ano %between% c(1981,1990) & safe_get(dt, 'v0206') == 4         & setor == 'U',                                    0.5,
+    ano %between% c(1981,1990) & safe_get(dt, 'v0206') %in% c(4,5) & setor == 'R',                                    0.5,
     ano %between% c(1981,1990),                                                                                    1,
-    ano %between% c(1992,2015) & (is.na(safe_col('v0212')) | safe_col('v0212') == 9),                              NA_real_,
-    ano %between% c(1992,2015) & safe_col('v0212') == 2         & safe_col('v0211') == 1 & setor == 'U',           0,
-    ano %between% c(1992,2015) & safe_col('v0212') %in% c(2,4) & safe_col('v0211') == 1 & setor == 'R',           0,
-    ano %between% c(1992,2015) & safe_col('v0212') == 2         & safe_col('v0211') == 3 & setor == 'U',           0.5,
-    ano %between% c(1992,2015) & safe_col('v0212') %in% c(2,4) & safe_col('v0211') == 3 & setor == 'R',           0.5,
+    ano %between% c(1992,2015) & (is.na(safe_get(dt, 'v0212')) | safe_get(dt, 'v0212') == 9),                              NA_real_,
+    ano %between% c(1992,2015) & safe_get(dt, 'v0212') == 2         & safe_get(dt, 'v0211') == 1 & setor == 'U',           0,
+    ano %between% c(1992,2015) & safe_get(dt, 'v0212') %in% c(2,4) & safe_get(dt, 'v0211') == 1 & setor == 'R',           0,
+    ano %between% c(1992,2015) & safe_get(dt, 'v0212') == 2         & safe_get(dt, 'v0211') == 3 & setor == 'U',           0.5,
+    ano %between% c(1992,2015) & safe_get(dt, 'v0212') %in% c(2,4) & safe_get(dt, 'v0211') == 3 & setor == 'R',           0.5,
     ano %between% c(1992,2015),                                                                                    1
   )]
   
   dt[, B2 := fcase(
     ano %between% c(1981,1990) &
-      (is.na(safe_col('v0207')) | safe_col('v0207') == 9) &
-      (is.na(safe_col('v0208')) | safe_col('v0208') == 9),                       NA_real_,
-    ano %between% c(1981,1990) & safe_col('v0207') == 0 & setor == 'U',          0,
-    ano %between% c(1981,1990) & safe_col('v0207') %in% c(0,2) & setor == 'R',   0,
+      (is.na(safe_get(dt, 'v0207')) | safe_get(dt, 'v0207') == 9) &
+      (is.na(safe_get(dt, 'v0208')) | safe_get(dt, 'v0208') == 9),                       NA_real_,
+    ano %between% c(1981,1990) & safe_get(dt, 'v0207') == 0 & setor == 'U',          0,
+    ano %between% c(1981,1990) & safe_get(dt, 'v0207') %in% c(0,2) & setor == 'R',   0,
     ano %between% c(1981,1990),                                                  1,
     ano %between% c(1992,2015) &
-      (is.na(safe_col('v0215')) | safe_col('v0215') == 9) &
-      (is.na(safe_col('v0216')) | safe_col('v0216') == 9) &
-      (is.na(safe_col('v0217')) | safe_col('v0217') == 9),                       NA_real_,
-    ano %between% c(1992,2015) & safe_col('v0215') == 1 &
-      safe_col('v0216') == 2 & safe_col('v0217') == 1 & setor == 'U',            0,
-    ano %between% c(1992,2015) & safe_col('v0215') == 1 &
-      safe_col('v0216') == 2 & safe_col('v0217') %in% c(1,2,3) & setor == 'R',   0,
+      (is.na(safe_get(dt, 'v0215')) | safe_get(dt, 'v0215') == 9) &
+      (is.na(safe_get(dt, 'v0216')) | safe_get(dt, 'v0216') == 9) &
+      (is.na(safe_get(dt, 'v0217')) | safe_get(dt, 'v0217') == 9),                       NA_real_,
+    ano %between% c(1992,2015) & safe_get(dt, 'v0215') == 1 &
+      safe_get(dt, 'v0216') == 2 & safe_get(dt, 'v0217') == 1 & setor == 'U',            0,
+    ano %between% c(1992,2015) & safe_get(dt, 'v0215') == 1 &
+      safe_get(dt, 'v0216') == 2 & safe_get(dt, 'v0217') %in% c(1,2,3) & setor == 'R',   0,
     ano %between% c(1992,2015),                                                  1
   )]
   
@@ -397,8 +397,8 @@
     ),
     v2c = fcase(
       ano <= 1990,                                          NA_real_,
-      is.na(safe_col('v0230')) | safe_col('v0230') == 9,   NA_real_,
-      safe_col('v0230') == 2,                              0,
+      is.na(safe_get(dt, 'v0230')) | safe_get(dt, 'v0230') == 9,   NA_real_,
+      safe_get(dt, 'v0230') == 2,                              0,
       default = 1
     )
   )]
@@ -484,10 +484,10 @@
 
 .rowcalc_impl_C <- function(dt) {
   
-  dt <- merge(dt, .sm_pnad, by = 'ano', all.x = TRUE)
+  .cols_existentes <- names(dt)
   
-  safe_col <- function(nm) {
-    if (nm %in% names(dt)) {
+  safe_get <- function(dt, nm) {
+    if (nm %in% .cols_existentes) {
       v <- dt[[nm]]
       if (is.numeric(v)) as.double(v) else v
     } else NA_real_
@@ -517,7 +517,7 @@
     setor  = fcase(v1022 == 1, 'U', default = 'R'),
     area   = fcase(v1023 %in% c(1,2), 'RM', default = 'UF')
   )]
-
+  
   # PSU e STRATA ----
   dt[, `:=` (
     psu    = paste0(ano, '_', uf_ref, '_', as.character(upa)),
@@ -551,11 +551,13 @@
   #Abordagem da RPC para quando, recém-lançados, os microdados da PNADc 2025 (24/04/2026) não vinham com VD5007
   if ('vd5007' %in% names(dt)) {
     dt[, rpc := round(vd5007 / pessoas_fam, 2)]
-  } else {
-    dt[, rend_dom := sum(fcoalesce(as.double(safe_col('vd4020')), 0), na.rm = TRUE),
-       by = domicilioid]
+  } else if ('vd4020' %in% names(dt)) {
+    dt[, rend_dom := sum(fcoalesce(as.double(vd4020), 0), na.rm = TRUE), by = domicilioid]
     dt[, rpc := round(rend_dom / pessoas_fam, 2)]
     dt[, rend_dom := NULL]
+  } else {
+    warning('Ano ', unique(dt$ano), ': variáveis de renda não disponíveis (vd5007 e vd4020 ausentes)')
+    dt[, rpc := NA_real_]
   }
   
   dt[, `:=` (
@@ -631,8 +633,8 @@
   )]
   
   dt[, `:=` (
-    ban_ref    = if ('s01011a' %in% names(dt)) as.double(dt[['s01011a']]) else as.double(dt[['s01011']]),
-    esgoto_ref = if ('s01012a' %in% names(dt)) as.double(dt[['s01012a']]) else as.double(dt[['s01012']])
+    ban_ref = as.double(if ('s01011a' %in% names(dt)) dt[['s01011a']] else dt[['s01011']]),
+    esgoto_ref = as.double(if ('s01012a' %in% names(dt)) dt[['s01012a']] else dt[['s01012']])
   )]
   
   dt[, `:=` (
@@ -735,7 +737,7 @@
   
   dt[, P2 := fcase(
     idade < 16,                              0,
-    vd4012 == 1 | safe_col('v5004a') == 1,   0,
+    vd4012 == 1 | safe_get(dt, 'v5004a') == 1,   0,
     default = 1
   )]
   
@@ -775,6 +777,8 @@ rowcalc_pnad <- function(df, type = NULL) {
   } else {
     type <- match.arg(type, c('anual', 'continua'))
   }
+  
+  dt <- merge(dt, .sm_pnad, by = 'ano', all.x = TRUE)
   
   if (type == 'continua') .rowcalc_impl_C(dt) else .rowcalc_impl_A(dt)
 }

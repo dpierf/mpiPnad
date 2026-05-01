@@ -46,11 +46,13 @@ aggcalc_pnad <- function(df, type = NULL) {
   # INDICADORES INDIVIDUAIS (valor máximo por domicílio) ----
   fam <- dt[, lapply(.SD, \(x) {
     v <- max(x, na.rm = TRUE)
-    fifelse(is.infinite(v), NA_real_, v)
+    if (is.infinite(v)) NA_real_ else v
   }), .SDcols = c('E1','E2','E3','P1','P2'), by = domicilioid]
   
   # JOIN E CÁLCULO DO SCORE ----
-  result <- merge(ref, fam, by = 'domicilioid', all.x = TRUE)
+  setkey(ref, domicilioid)
+  setkey(fam, domicilioid)
+  result <- fam[ref]  # data.table style, mais rápido
   
   mat <- as.matrix(result[, .SD, .SDcols = inds])
   result[, score := as.numeric(mat %*% w)]

@@ -12,22 +12,36 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                           port         = NULL,
                           launch       = TRUE
 ){
-
+  
   # 0. Elementos introdutórios ====
+  
+  # Validação de objetos
+  if (!file.exists(path_dict)) stop("Dicionário não encontrado em: ", path_dict)
+  if (!file.exists(path_pnad)) stop("Base PNAD não encontrada em: ", path_pnad)
   
   # Objetos a carregar
   dicts   <- readRDS(path_dict)
   mpi_pnad <- arrow::read_parquet(path_pnad) |> data.table::setDT()
   
-    .zoib_coefs    <- arrow::read_parquet(fs::path(path_models, 'zoib_coefs_global.parquet'))
-    .zoib_grade    <- arrow::read_parquet(fs::path(path_models, 'zoib_grade_global.parquet'))
-    
-    .qr_coefs      <- arrow::read_parquet(fs::path(path_models, 'quantilica_coefs_global.parquet'))
-    .qr_grade      <- arrow::read_parquet(fs::path(path_models, 'quantilica_grade_global.parquet'))
-    
-    .logit_coefs   <- arrow::read_parquet(fs::path(path_models, 'logit_coefs_global.parquet'))
-    .logit_effects <- arrow::read_parquet(fs::path(path_models, 'logit_effects_global.parquet'))
-    .logit_grade   <- arrow::read_parquet(fs::path(path_models, 'logit_grade_global.parquet'))
+  .load_model_file <- function(base, suffix, ext = 'parquet') {
+    f <- fs::path(path_models, paste0(base, suffix, '.', ext))
+    if (fs::file_exists(f)) {
+      if (ext == 'parquet') arrow::read_parquet(f) |> data.table::setDT()
+      else if (ext == 'rds') readRDS(f)
+      else NULL
+    } else {
+      warning('Arquivo não encontrado: ', f)
+      NULL
+    }
+  }
+  
+  .zoib_coefs    <- .load_model_file('zoib_coefs', '_global')
+  .zoib_grade    <- .load_model_file('zoib_grade', '_global')
+  .qr_coefs      <- .load_model_file('quantilica_coefs', '_global')
+  .qr_grade      <- .load_model_file('quantilica_grade', '_global')
+  .logit_coefs   <- .load_model_file('logit_coefs',   '_global')
+  .logit_effects <- .load_model_file('logit_effects', '_global')
+  .logit_grade   <- .load_model_file('logit_grade',   '_global')
   
   
   # Helpers
@@ -38,7 +52,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                   V1 = 4/27, V2 = 2/27, 
                   E1 = 2/27, E2 = 2/27, E3 = 2/27,
                   P1 = 2/27, P2 = 1/27) 
-   
+  
   .comp_map   <- c(D1 = 'D', D2 = 'D', D3 = 'D', B1 = 'B', B2 = 'B', B3 = 'B', B4 = 'B',
                    V1 = 'V', V2 = 'V', E1 = 'E', E2 = 'E', E3 = 'E', P1 = 'P', P2 = 'P')
   .comp_names <- c(V='Padrão de Vida',P='Emprego e Proteção Social',
@@ -320,7 +334,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
     body = bs4DashBody(.css, shinyjs::useShinyjs(), 
                        bs4TabItems(
                          
-  ## P1 - Anual ----
+                         ## P1 - Anual ----
                          bs4TabItem(tabName='anual',
                                     div(class='filtro-row',
                                         fluidRow(
@@ -376,7 +390,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                                     )
                          ),
                          
-  ## P2 - Tendências ----
+                         ## P2 - Tendências ----
                          bs4TabItem(tabName='tendencia',
                                     div(class='filtro-row',
                                         fluidRow(
@@ -389,7 +403,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                                           column(2,selectInput('arranjo_p2','Arranjo', choices = c('Todas'='0', setNames(names(dicts$arranjo_dec), dicts$arranjo_dec)))),
                                           column(2,selectInput('cutoff_p2','Cutoff k',.cutoffs,selected='0.33')),
                                           column(6,selectInput('periodo_p2','Períodos',.periodos,multiple=TRUE,
-                                                                       selected=c('1981–1993','2003–2007','2019–2024'),width='100%'))
+                                                               selected=c('1981–1993','2003–2007','2019–2024'),width='100%'))
                                         )
                                     ),
                                     fluidRow(
@@ -428,7 +442,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                                     )
                          ),
                          
-  ## P3 - Modelos ----
+                         ## P3 - Modelos ----
                          bs4TabItem(tabName='modelos',
                                     div(class='filtro-row',
                                         fluidRow(
@@ -526,7 +540,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                                                      )
                                     ),
                                     
-                                                   
+                                    
                                     # LOGIT
                                     conditionalPanel("input.modelo_p3 == 'logit'",
                                                      fluidRow(
@@ -547,9 +561,9 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                                                      )
                                     )
                          ),
-  
-  ## P4 - Grupos ----
-  
+                         
+                         ## P4 - Grupos ----
+                         
                          bs4TabItem(tabName='grupos',
                                     div(class='filtro-row',
                                         fluidRow(
@@ -621,7 +635,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                                               ))
                                     )
                          )
-  
+                         
                        )
     )
   )
@@ -630,8 +644,8 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
   # 4. Server ====
   
   server <- function(input, output, session) {
-  
-  # Geral  
+    
+    # Geral  
     observe({
       anos <- sort(unique(mpi_pnad$ano))
       ufs  <- sort(unique(mpi_pnad$uf))
@@ -648,7 +662,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
     })
     
     
-  ## P1 - Anual ----
+    ## P1 - Anual ----
     dados_p1_raw <- reactive({
       dt <- mpi_pnad[ano==as.integer(input$ano)]
       if (input$regiao_p1 != '0')               dt <- dt[regiao      == dicts$regiao[input$regiao_p1]]
@@ -796,7 +810,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
     })
     
     
-  ## P2 - Tendências ----
+    ## P2 - Tendências ----
     .filtrar_p2 <- function(dt) {
       if (input$regiao_p2 != '0')               dt <- dt[regiao      == dicts$regiao[input$regiao_p2]]
       if (input$uf_p2     != 'Todas')           dt <- dt[uf          == input$uf_p2]
@@ -908,7 +922,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                        text=~sprintf('%s — %s\nRenda: R$ %s\nScore: %s',
                                      uf,periodo,.comma_br(round(renda)),.fmt_n(score,3)),
                        hoverinfo='text', legendgroup=per)
-  
+        
         if (nrow(sub) >= 2) {
           fit     <- lm(score ~ renda, data=sub)
           x_seq   <- seq(min(sub$renda,na.rm=TRUE), max(sub$renda,na.rm=TRUE), length.out=80)
@@ -1038,8 +1052,8 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
     })
     
     
-  ## P3 - Modelos ----
-  
+    ## P3 - Modelos ----
+    
     ### ZOIB ----
     .trunc_thresh <- 3.5
     
@@ -1339,147 +1353,63 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
       )
     })
     
-    output$qr_boxplot <- renderPlotly({  dt   <- as.data.table(.qr_coefs)
-      pref <- input$pred_box_p3; req(pref)
-      
+    output$qr_boxplot <- renderPlotly({
+      req(input$pred_box_p3)
+      dt <- as.data.table(.qr_coefs)
+      pref <- input$pred_box_p3
       sel <- dt[grepl(paste0('^', pref), termo) & termo != '(Intercept)']
       req(nrow(sel) > 0)
       
+      # Mapear tau numérico
       sel[, tau_num := .tau_map[as.character(tau)]]
       sel[, categoria := sub(paste0('^', pref), '', termo)]
       
-      # pivotar — uma linha por categoria com todos os taus como colunas
-      wide <- dcast(sel, categoria ~ tau_num, value.var='coef')
-      setnames(wide, as.character(c(0.10,0.25,0.33,0.50,0.67,0.75,0.90)),
-               c('q10','q25','q33','q50','q67','q75','q90'))
+      # Dados para boxplot: cada combinação categoria × quantil
+      # Shape: uma coluna "coef", uma coluna "quantil"
+      box_data <- sel[, .(categoria, tau_num, coef)]
       
-      cats <- wide$categoria
-      n    <- length(cats)
+      # Ordenar categorias por mediana (ou por coef médio)
+      ord <- box_data[, .(med = median(coef, na.rm=TRUE)), by=categoria][order(med), categoria]
+      box_data[, categoria := factor(categoria, levels = ord)]
       
-      # y positions — uma por categoria
-      ys <- seq_len(n)
-      
-      p <- plot_ly()
-      
-      # linha zero
-      p <- add_segments(p, x=0, xend=0, y=0.3, yend=n+0.7,
-                        line=list(color='#aaa', dash='dash', width=1),
-                        showlegend=FALSE, hoverinfo='none')
-      
-      for (i in seq_len(n)) {
-        d  <- wide[i]
-        yc <- ys[i]
-        
-        # whisker esquerdo (q10–q25)
-        p <- add_segments(p, x=d$q10, xend=d$q25, y=yc, yend=yc,
-                          line=list(color='#185fa5', width=1.5, dash='dot'),
-                          showlegend=FALSE, hoverinfo='none')
-        # cap esquerdo
-        p <- add_segments(p, x=d$q10, xend=d$q10, y=yc-0.18, yend=yc+0.18,
-                          line=list(color='#185fa5', width=1.5),
-                          showlegend=FALSE, hoverinfo='none')
-        
-        # whisker direito (q75–q90)
-        p <- add_segments(p, x=d$q75, xend=d$q90, y=yc, yend=yc,
-                          line=list(color='#185fa5', width=1.5, dash='dot'),
-                          showlegend=FALSE, hoverinfo='none')
-        # cap direito
-        p <- add_segments(p, x=d$q90, xend=d$q90, y=yc-0.18, yend=yc+0.18,
-                          line=list(color='#185fa5', width=1.5),
-                          showlegend=FALSE, hoverinfo='none')
-        
-        # caixa IQR (q25–q75)
-        p <- add_trace(p, type='scatter', mode='none',
-                       x=c(d$q25, d$q75, d$q75, d$q25, d$q25),
-                       y=c(yc-0.28, yc-0.28, yc+0.28, yc+0.28, yc-0.28),
-                       fill='toself',
-                       fillcolor='rgba(24,95,165,0.18)',
-                       line=list(color='#185fa5', width=1.3),
-                       showlegend=FALSE, hoverinfo='none')
-        
-        # linha mediana (q50)
-        p <- add_segments(p, x=d$q50, xend=d$q50, y=yc-0.28, yend=yc+0.28,
-                          line=list(color='#185fa5', width=2.5),
-                          showlegend=if(i==1) TRUE else FALSE,
-                          name='Mediana (τ: 0,50)',
-                          hoverinfo='none')
-        
-        # diamantes q33 e q67
-        for (tau_val in c('q33','q67')) {
-          xd  <- as.numeric(d[[tau_val]])
-          tau_lbl <- if(tau_val=='q33') '0,33' else '0,67'
-          p <- add_trace(p, type='scatter', mode='markers',
-                         x=xd, y=yc,
-                         marker=list(symbol='diamond', size=10,
-                                     color='#e8a020', line=list(color='#b07010', width=1.5)),
-                         showlegend=if(i==1 && tau_val=='q33') TRUE else FALSE,
-                         name='τ: 0,33 e τ: 0,67',
-                         text=sprintf('<b>%s</b><br>τ: %s: %s%s',
-                                      d$categoria, tau_lbl,
-                                      if(xd>=0) '+' else '', .fmt_n(xd,3)),
-                         hoverinfo='text')
-        }
-        
-        # hover da caixa
-        p <- add_trace(p, type='scatter', mode='markers',
-                       x=d$q50, y=yc,
-                       marker=list(size=14, color='rgba(0,0,0,0)', line=list(width=0)),
-                       showlegend=FALSE,
-                       text=sprintf(paste0(
-                         '<b>%s</b><br>',
-                         'τ: 0,10: %s<br>τ: 0,25: %s<br>',
-                         'τ: 0,33: %s<br>τ: 0,50: %s<br>',
-                         'τ: 0,67: %s<br>τ: 0,75: %s<br>τ: 0,90: %s'),
-                         d$categoria,
-                         .fmt_n(d$q10,3), .fmt_n(d$q25,3),
-                         .fmt_n(d$q33,3), .fmt_n(d$q50,3),
-                         .fmt_n(d$q67,3), .fmt_n(d$q75,3), .fmt_n(d$q90,3)),
-                       hoverinfo='text')
-      }
-      
-      layout(p,
-             xaxis=list(title='Coeficiente estimado', zeroline=FALSE,
-                        tickformat='.3f'),
-             yaxis=list(tickmode='array', tickvals=ys, ticktext=cats,
-                        showgrid=FALSE, range=c(0.3, n+0.7)),
-             legend=list(orientation='h', y=-0.15),
-             margin=list(l=220, b=60, t=20),
-             annotations=list(list(
-               xref='paper', yref='paper', x=0.5, y=-0.08,
-               text='<i>Coef. > 0: categoria aumenta o score em relação à referência (mais pobreza) · Coef. < 0: reduz (menos pobreza)</i>',
-               showarrow=FALSE, xanchor='center',
-               font=list(size=9, color='#777')
-             ))
-             
-      )
-    
+      p <- ggplot(box_data, aes(x = categoria, y = coef)) +
+        geom_boxplot(aes(fill = as.factor(tau_num)), outlier.shape = NA) +
+        geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+        scale_fill_brewer(palette = "RdYlBu", name = "Quantil (τ)") +
+        labs(x = NULL, y = "Coeficiente estimado",
+             title = paste("Distribuição dos coeficientes por quantil -", .attr_labels[pref]),
+             caption = .sub_mu) +
+        coord_flip() +
+        theme_minimal(base_size = 11) +
+        theme(legend.position = "bottom")
+      ggplotly(p, tooltip = "y") %>% layout(margin = list(l = 120))
     })
     
     output$.qr_grade_plot <- renderPlotly({
-     dt       <- as.data.table(.qr_grade)
-     tau_cols <- grep('^tau_', names(dt), value=TRUE)
-     ag       <- dt[, lapply(.SD, mean, na.rm=TRUE), by=arranjo_full, .SDcols=tau_cols]
-     ag_long  <- melt(ag, id.vars='arranjo_full', variable.name='tau', value.name='score_pred')
-     ag_long[, tau_num := .tau_map[as.character(tau)]]
-     arranjos <- sort(unique(ag_long$arranjo_full))
-     cores    <- setNames(RColorBrewer::brewer.pal(max(3,length(arranjos)),'Dark2')[seq_along(arranjos)], arranjos)
-     p <- plot_ly()
-     for (arr in arranjos) {
-       sub <- ag_long[arranjo_full == arr]
-       p <- add_trace(p, data=sub, x=~tau_num, y=~score_pred,
-                      type='scatter', mode='lines+markers', name=arr,
-                      line=list(color=cores[arr], width=2),
-                      marker=list(color=cores[arr], size=5),
-                      text=~sprintf('%s\nτ: %s\nScore: %s', arranjo_full, tau_num, .fmt_n(score_pred,3)),
-                      hoverinfo='text')
-     }
-     layout(p,
-            xaxis=list(title='Quantil (τ)', tickvals=unname(.tau_map),
-                       ticktext=as.character(unname(.tau_map))),
-            yaxis=list(title='Score predito'),
-            legend=list(orientation='h', y=-0.15))
-   })
-  
+      dt       <- as.data.table(.qr_grade)
+      tau_cols <- grep('^tau_', names(dt), value=TRUE)
+      ag       <- dt[, lapply(.SD, mean, na.rm=TRUE), by=arranjo_full, .SDcols=tau_cols]
+      ag_long  <- melt(ag, id.vars='arranjo_full', variable.name='tau', value.name='score_pred')
+      ag_long[, tau_num := .tau_map[as.character(tau)]]
+      arranjos <- sort(unique(ag_long$arranjo_full))
+      cores    <- setNames(RColorBrewer::brewer.pal(max(3,length(arranjos)),'Dark2')[seq_along(arranjos)], arranjos)
+      p <- plot_ly()
+      for (arr in arranjos) {
+        sub <- ag_long[arranjo_full == arr]
+        p <- add_trace(p, data=sub, x=~tau_num, y=~score_pred,
+                       type='scatter', mode='lines+markers', name=arr,
+                       line=list(color=cores[arr], width=2),
+                       marker=list(color=cores[arr], size=5),
+                       text=~sprintf('%s\nτ: %s\nScore: %s', arranjo_full, tau_num, .fmt_n(score_pred,3)),
+                       hoverinfo='text')
+      }
+      layout(p,
+             xaxis=list(title='Quantil (τ)', tickvals=unname(.tau_map),
+                        ticktext=as.character(unname(.tau_map))),
+             yaxis=list(title='Score predito'),
+             legend=list(orientation='h', y=-0.15))
+    })
+    
     
     ### Logit ----
     output$logit_or <- renderPlotly({
@@ -1578,7 +1508,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
       z   <- as.matrix(mat[, -1, with=FALSE]); rownames(z) <- mat$grupo
       z_vec <- as.numeric(as.vector(t(z)))
       cores_texto <- ifelse(z_vec > 0.4, 'white', '#333333')
-  
+      
       annots_cells <- lapply(seq_along(z_vec), \(i) list(
         x         = rep(periodos, times=length(grupos))[i],
         y         = rep(grupos,   each=length(periodos))[i],
@@ -1687,7 +1617,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                   'Altura do corte (dendrograma)',
                   icon=icon('scissors'), color='secondary', width=12)
     })
-  
+    
   }
   
   # 5. Lançamento ====

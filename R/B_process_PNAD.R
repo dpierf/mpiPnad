@@ -1,4 +1,12 @@
-# ── Dicionários de variáveis ──────────────────────────────────────────────────
+# ============================================================================
+# process_pnad.R
+# Versão baseada no código do Claude com:
+# - Cache do dicionário de variáveis
+# - skip_exists (evita reprocessar)
+# - Mantém compatibilidade com .zip, .rar e .7z
+# ============================================================================
+
+# DICIONÁRIOS DE VARIÁVEIS ----------------------------------------------------
 
 .vars_pnadA <- list(
   '1981_1990' = c(
@@ -26,102 +34,126 @@
   'VD4001','VD4002','VD4007','V4029','V5004A','VD4012','V4012','V40121','VD4020'
 )
 
+# CACHE DO DICIONÁRIO ---------------------------------------------------------
 
-# ── Helper interno ────────────────────────────────────────────────────────────
+.vars_cache <- new.env()
 
 .get_vars_pnad <- function(type, ano) {
-  if (type == 'continua') return(.vars_pnadC)
-  if (ano %between% c(1981, 1991)) return(.vars_pnadA[['1981_1990']])
-  if (ano %between% c(1992, 2015)) return(.vars_pnadA[['1992_2015']])
-  stop('Ano fora do mapeamento para PNAD Anual: ', ano)
+  key <- paste(type, ano, sep = '_')
+  
+  if (exists(key, envir = .vars_cache)) {
+    return(get(key, envir = .vars_cache))
+  }
+  
+  result <- if (type == 'continua') {
+    .vars_pnadC
+  } else if (ano %between% c(1981, 1991)) {
+    .vars_pnadA[['1981_1990']]
+  } else if (ano %between% c(1992, 2015)) {
+    .vars_pnadA[['1992_2015']]
+  } else {
+    stop('Ano fora do mapeamento para PNAD Anual: ', ano)
+  }
+  
+  assign(key, result, envir = .vars_cache)
+  result
 }
 
-
-# ── Função principal ──────────────────────────────────────────────────────────
+# FUNÇÃO PRINCIPAL ------------------------------------------------------------
 
 #' Processa microdados da PNAD (anual ou contínua)
 #'
-#' @param file_path Caminho lógico do arquivo bruto (.zip para anual; arquivo PNADC para contínua)
-#' @param type Tipo de pesquisa: `'anual'` (1981–2015) ou `'continua'` (2015–).
-#'   Se `NULL` (padrão), detectado automaticamente a partir do nome do arquivo.
-#' @param proc_dir Diretório onde serão salvos os arquivos processados completos (Parquet)
-#' @param out_dir  Diretório onde serão salvos os arquivos filtrados (Parquet)
-#' @param vars     Vetor de variáveis a selecionar. `NULL` aplica o dicionário padrão do período
-#' @param verbose  Booleano (default = `TRUE`) controlando mensagens de progresso
-#' @return `data.table` filtrado, invisível
-#' @export
+#' @param file_path Caminho do arquivo bruto (.zip/.rar/.7z para anual; .txt para contínua)
+#' @param type Tipo: 'anual' ou 'continua' (detectado se NULL)
+#' @param proc_dir Diretório para Parquet completo
+#' @param out_dir Diretório para Parquet filtrado
+#' @param vars Vetor de variáveis. NULL usa dicionário com cache
+#' @param verbose Mensagens de progresso
+#' @param skip_exists Se TRUE, pula processamento se arquivo filtrado já existe
+#' @return data.table filtrado (invisível)
 
 process_pnad <- function(
     file_path,
-    type     = NULL,
+    type = NULL,
     proc_dir = 'data/02_processed',
-    out_dir  = 'data/03_filtered',
-    vars     = NULL,
-    verbose  = TRUE
+    out_dir = 'data/03_filtered',
+    vars = NULL,
+    verbose = TRUE,
+    skip_exists = TRUE
 ) {
-  
   
   # ETAPA 0 - Detecção do tipo de pesquisa =====================================
   
   if (is.null(type)) {
     fname <- basename(file_path)
-    type  <- dplyr::case_when(
+    type <- dplyr::case_when(
       stringr::str_detect(fname, stringr::regex('PNADC_', ignore_case = TRUE)) ~ 'continua',
-      stringr::str_detect(fname, stringr::regex('PNAD',   ignore_case = TRUE)) ~ 'anual',
+      stringr::str_detect(fname, stringr::regex('PNAD', ignore_case = TRUE)) ~ 'anual',
       .default = NA_character_
     )
-    if (is.na(type)) stop(
-      'Nao foi possivel detectar o tipo de PNAD a partir do arquivo: ', fname,
-      '\nPasse `type = "anual"` ou `type = "continua"` explicitamente.'
-    )
+    if (is.na(type)) {
+      stop('Nao foi possivel detectar o tipo de PNAD a partir do arquivo: ', fname,
+           '\nPasse `type = "anual"` ou `type = "continua"` explicitamente.')
+    }
   } else {
     type <- match.arg(type, c('anual', 'continua'))
   }
   
+  # Extrai ano e define prefixo
+  if (type == 'continua') {
+    ano <- as.integer(stringr::str_extract(basename(file_path), '\\d{4}(?=_visita)'))
+    prefix <- 'pnadc'
+  } else {
+    ano <- as.integer(stringr::str_extract(basename(file_path), '\\d{4}'))
+    prefix <- 'pnad'
+  }
+  
+  # Verifica se já foi processado (skip_exists)
+  out_path <- fs::path(out_dir, paste0(prefix, '_', ano, '_filtered.parquet'))
+  if (skip_exists && fs::file_exists(out_path)) {
+    if (verbose) message('Ano ', ano, ' já processado. Lendo cache...')
+    dt_filt <- arrow::read_parquet(out_path)
+    gc()
+    return(invisible(dt_filt))
+  }
   
   # ETAPA 1 - Importação de dados brutos =======================================
   
   if (type == 'continua') {
     
-    ano    <- as.integer(stringr::str_extract(basename(file_path), '\\d{4}(?=_visita)'))
-    prefix <- 'pnadc'
-    
-    fs::dir_create(dirname(file_path))
     if (verbose) message('Lendo bases da PNAD Contínua — ano ', ano)
     
-    df_raw  <- PNADcIBGE::get_pnadc(
-      year      = ano,
+    fs::dir_create(dirname(file_path))
+    
+    df_raw <- PNADcIBGE::get_pnadc(
+      year = ano,
       interview = 1,
-      labels    = F,
-      design    = F,
-      deflator  = F,
-      reload    = F,
-      savedir   = dirname(file_path)
+      labels = FALSE,
+      design = FALSE,
+      deflator = FALSE,
+      reload = FALSE,
+      savedir = dirname(file_path)
     )
     dt_full <- data.table::as.data.table(df_raw)
     data.table::setnames(dt_full, tolower(names(dt_full)))
     
   } else {
     
-    ano    <- as.integer(stringr::str_extract(basename(file_path), '\\d{4}'))
-    prefix <- 'pnad'
-    
     if (verbose) message('Lendo bases da PNAD Anual — ano ', ano)
     
-    tmp    <- tempdir()
+    tmp <- tempdir()
     archive::archive_extract(file_path, dir = tmp)
     folder <- file.path(tmp, paste0('PNAD ', ano))
     
-    dom_file <- list.files(folder, pattern = 'pnad\\.dom', full.names = T, ignore.case = T)
-    pes_file <- list.files(folder, pattern = 'pnad\\.pes', full.names = T, ignore.case = T)
+    dom_file <- list.files(folder, pattern = 'pnad\\.dom', full.names = TRUE, ignore.case = TRUE)
+    pes_file <- list.files(folder, pattern = 'pnad\\.pes', full.names = TRUE, ignore.case = TRUE)
     
-    dom     <- data.table::as.data.table(data.table::fread(dom_file))
-    pes     <- data.table::as.data.table(data.table::fread(pes_file))
+    dom <- data.table::as.data.table(data.table::fread(dom_file))
+    pes <- data.table::as.data.table(data.table::fread(pes_file))
     dt_full <- pes[dom, on = 'domicilioid']
     data.table::setnames(dt_full, tolower(names(dt_full)))
     
   }
-  
   
   # ETAPA 2 - Parquet completo =================================================
   
@@ -131,7 +163,6 @@ process_pnad <- function(
   arrow::write_parquet(dt_full, proc_path)
   if (verbose) message('Base raw (parquet) de ', ano, ' salva em: ', proc_path)
   
-  
   # ETAPA 3 - Filtragem de atributos ===========================================
   
   fs::dir_create(out_dir)
@@ -139,15 +170,13 @@ process_pnad <- function(
   vars_sel <- if (!is.null(vars)) vars else .get_vars_pnad(type, ano)
   cols_sel <- intersect(tolower(vars_sel), names(dt_full))
   
-  dt_filt      <- dt_full[, ..cols_sel]
+  dt_filt <- dt_full[, ..cols_sel]
   dt_filt[, ano := ano]
   
-  out_path <- fs::path(out_dir, paste0(prefix, '_', ano, '_filtered.parquet'))
   arrow::write_parquet(dt_filt, out_path)
   if (verbose) message('Base filtrada de ', ano, ' salva em: ', out_path)
   
-  
-  # Limpeza pós-download (apenas PNAD Contínua) ================================
+  # ETAPA 4 - Limpeza (apenas PNAD Contínua) ===================================
   
   if (type == 'continua') {
     txt_extraido <- fs::path(dirname(file_path), glue::glue('PNADC_{ano}_visita1.txt'))
@@ -156,4 +185,11 @@ process_pnad <- function(
   
   gc()
   invisible(dt_filt)
+}
+
+# LIMPAR CACHE ----------------------------------------------------------------
+
+.clear_vars_cache <- function() {
+  rm(list = ls(.vars_cache), envir = .vars_cache)
+  message('Cache de variáveis limpo.')
 }
