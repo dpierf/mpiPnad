@@ -29,15 +29,15 @@ if (!requireNamespace('pak', quietly = TRUE)) {
   pak::pak('pak')
 }
 
-
 # Instalar/Atualizar o pacote 'mpipnad' e dependências
+gc()
 pak::cache_clean()
 if (requireNamespace('mpipnad', quietly = TRUE)) {
   try(unloadNamespace('mpipnad'), silent = TRUE)
   remove.packages('mpipnad')
 }
 pak::pak('dpierf/mpiPnad', upgrade = TRUE, dependencies = TRUE)
-library(mpipnad)
+require(mpipnad)
 
 
 # 1. DOWNLOAD E PROCESSAMENTO ===========================================================
@@ -46,16 +46,20 @@ library(mpipnad)
 download_pnad(anos = c(1981:2015))
 
 # Processar os arquivos brutos
+future::plan(future::multisession, workers = 3)  #3 cores
+
 c(
-  fs::dir_ls('data/01_raw/pnad',  glob = '*documentoPNAD*'),
+  fs::dir_ls('data/01_raw/pnad', glob = '*documentoPNAD*'),
   fs::dir_ls('data/01_raw/pnadc', glob = '*PNADC_*.zip')
-) |> purrr::walk(process_pnad)
+) |> furrr::future_walk(process_pnad)
+
+future::plan(future::sequential)
 
 
 # 2. CONSTRUÇÃO DO MPI-LA ===============================================================
 
 # Criar (ou carregar, se já existir) o banco de dados principal
-mpi_pnad <- create_mpi()
+resultados <- create_mpi()
 # Nota: se 'data/pnad_completa.parquet' e 'data/mpi_dictionary.rds' já existirem,
 # a função carrega os objetos diretamente sem reprocessar.
 
@@ -64,20 +68,21 @@ mpi_pnad <- create_mpi()
 
 # Medidas-resumo por recorte desejado (com exportação para CSV)
 mpi_summary <- resume_mpi(
-  dt       = mpi_pnad,
+  dt       = resultados$mpi_pnad,
   grupos   = c('ano'), #Outros grupos: 'setor', 'area', 'arranjo_familiar'
   k_output = 0.33
-) |> write.table('mpi_summary.csv', sep = ';', dec = ',')
+)
+mpi_summary |> write.table('mpi_summary.csv', sep = ';', dec = ',')
 
 # Gráficos e tabelas para análise descritiva (salva em output/graphs/)
-analyse_mpi(dt = mpi_pnad)
+analyse_mpi(dt = resultado$mpi_pnad)
 
 
 # 4. MODELAGEM ECONOMÉTRICA =============================================================
 
 # Ajustar modelos ZOIB, quantílico e logit
 modelos <- models_mpi(
-  dt      = mpi_pnad,
+  dt      = resultados$mpi_pnad,
   modelos = c('logit', 'quant', 'zoib'),
   rds     = FALSE #Somente trocar para 'TRUE' se o objetivo é salvar os RDS (>1.5GB cada)
 )
@@ -88,10 +93,10 @@ modelos <- models_mpi(
 # Rodar clustering (k = número de clusters desejado)
 anos <- c(1981:1985)
 grupos <- cluster_mpi(
-  dt     = mpi_pnad[ano %in% anos,], 
+  dt     = resultados$mpi_pnad[ano %in% anos,], 
   k      = 3, 
   reduce = T,
-  dicts  = dicts
+  dicts  = resultados$dicts
 )
 
 # Visualizar resultados
