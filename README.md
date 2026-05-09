@@ -16,7 +16,7 @@ adaptado para os microdados da PNAD anual (1981-2015) e PNAD Contínua (2016-202
 
 ---
 
-## Instalação
+## Instalação e Uso
 
 ```r
 # Instalar pak se necessário
@@ -24,17 +24,6 @@ if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak')
 
 # Instalar o pacote
 pak::pak('dpierf/mpiPnad')
-```
-
----
-
-## Uso
-
-1. Clone ou baixe este repositório
-2. Instale as dependências:
-
-```r
-source('pipeline_packages.R')
 ```
 
 O pipeline completo pode ser executado, etapa por etapa, abrindo o arquivo `pipeline.R`. Siga as instruções do arquivo.
