@@ -28,6 +28,8 @@ pak::pak('dpierf/mpiPnad')
 
 O pipeline completo pode ser executado, etapa por etapa, abrindo o arquivo `pipeline.R`. Siga as instruções do arquivo.
 
+Como adicional, o dashboard interativo deste produto pode ser acessado no link 🔗 [Dashboard MPI - PNAD](https://huggingface.co/spaces/dpierf/mpi-pnad)
+
 ---
 
 ## Estrutura do repositório
