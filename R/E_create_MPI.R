@@ -208,5 +208,8 @@ create_mpi <- function(
   cli::cli_alert_success('Dicionário salvo com sucesso')
   
   gc(verbose = FALSE)
-  invisible(resultado_final)
+  invisible(list(
+    mpi_pnad = resultado_final,
+    dicts    = .dicts
+  ))
 }
