@@ -64,7 +64,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
   .periodos   <- unname(dicts$periodo)          # labels do dicionário
   .periodo_ids <- names(dicts$periodo)          # ids inteiros ('1','2',...)
   .periodo_anos <- setNames(
-    list(1981:1993, 1995:2002, 2003:2007, 2008:2014, 2015:2018, 2019:2024),
+    list(1981:1993, 1995:2002, 2003:2007, 2008:2014, 2015:2018, 2019:2025),
     unname(dicts$periodo)
   )
   
@@ -403,7 +403,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                                           column(2,selectInput('arranjo_p2','Arranjo', choices = c('Todas'='0', setNames(names(dicts$arranjo_dec), dicts$arranjo_dec)))),
                                           column(2,selectInput('cutoff_p2','Cutoff k',.cutoffs,selected='0.33')),
                                           column(6,selectInput('periodo_p2','Períodos',.periodos,multiple=TRUE,
-                                                               selected=c('1981–1993','2003–2007','2019–2024'),width='100%'))
+                                                               selected=c('1981–1993','2003–2007','2019–2025'),width='100%'))
                                         )
                                     ),
                                     fluidRow(
@@ -723,7 +723,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
     output$mapa_renda <- renderPlot({
       ag <- dados_p1()[,.(renda=weighted.mean(rpc_real,peso,na.rm=TRUE)),by=uf]
       mp <- merge(.ufs,ag,by.x='abbrev_state',by.y='uf')
-      .mapa_gg(mp,'renda','Renda PC\n(R$2024)','#C7E9C0','#005A32',.comma_br)  # verde claro/escuro
+      .mapa_gg(mp,'renda','Renda PC\n(R$2025)','#C7E9C0','#005A32',.comma_br)  # verde claro/escuro
     })
     
     output$contrib_comp <- renderPlotly({
@@ -759,7 +759,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
         geom_col()+coord_flip()+
         scale_fill_gradient(low='#C7E9C0',high='#005A32',guide='none')+
         scale_y_continuous(labels=.comma_br)+
-        labs(x=NULL,y='Renda PC (R$ 2024)')+.tema
+        labs(x=NULL,y='Renda PC (R$ 2025)')+.tema
       ggplotly(p,tooltip='text') |> layout(margin=list(l=160))
     })
     
@@ -932,7 +932,7 @@ dashboard_mpi <- function(path_dict    = 'data/mpi_dictionary.rds',
                          showlegend=FALSE, hoverinfo='none', legendgroup=per)
         }
       }
-      layout(p, xaxis=list(title='Renda PC (R$ 2024)'), yaxis=list(title='Score MPI'),
+      layout(p, xaxis=list(title='Renda PC (R$ 2025)'), yaxis=list(title='Score MPI'),
              legend=list(orientation='h', y=-0.15))
     })
     

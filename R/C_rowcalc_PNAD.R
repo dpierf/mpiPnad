@@ -548,18 +548,8 @@
     v2005 %between% c(6,19), 4
   )]
   
-  #Abordagem da RPC para quando, recém-lançados, os microdados da PNADc 2025 (24/04/2026) não vinham com VD5007
-  if ('vd5007' %in% names(dt)) {
-    dt[, rpc := round(vd5007 / pessoas_fam, 2)]
-  } else if ('vd4020' %in% names(dt)) {
-    dt[, rend_dom := sum(fcoalesce(as.double(vd4020), 0), na.rm = TRUE), by = domicilioid]
-    dt[, rpc := round(rend_dom / pessoas_fam, 2)]
-    dt[, rend_dom := NULL]
-  } else {
-    warning('Ano ', unique(dt$ano), ': variáveis de renda não disponíveis (vd5007 e vd4020 ausentes)')
-    dt[, rpc := NA_real_]
-  }
-  
+  dt[, rpc := round(vd5007 / pessoas_fam, 2)]
+
   dt[, `:=` (
     sexo_chefe  = sexo[cond_familia == 1][1],
     tem_conjuge = fifelse(any(cond_familia == 2, na.rm = TRUE), 'S', 'N'),

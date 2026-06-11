@@ -9,7 +9,7 @@
 #' @param anos_comp Anos escolhidos para comparativos (default = todo ano terminado em 5, alem do ano mais recente)
 #' @param anos_maps Anos escolhidos para criacao dos mapas (default = de 1981 em diante, a cada 14 anos, alem do ano mais recente)
 #' @param anos_dens Anos escolhidos para analises de dominancia e densidade (default = todo ano terminado em 5, alem do ano mais recente)
-#' @param anos_decp Lista de pares de ano para analise das decomposicoes (default = 1981-1990, 1990-2001, 2001-2011, 2011-2019, 2019-2024)
+#' @param anos_decp Lista de pares de ano para analise das decomposicoes (default = 1981-1990, 1990-2001, 2001-2011, 2011-2019, 2019-2025)
 
 
 #' @return data.table unico, com calculos de pobreza unidimensional (RPC) e multidimensional (MPI usando cutoff K)
@@ -22,13 +22,13 @@ analyse_mpi <- function(
     k_ref                = 0.33,
     cutoffs              = c(0.10, 0.20, 0.25, 0.33, 0.40, 0.50),
     
-    anos_tabs            = c(1981, 1987, 1993, 1999, 2005, 2011, 2017, 2024), #Anos-padrão para as tabelas
-    anos_comp            = c(1985, 1995, 2005, 2015, 2024), #Anos-padrão para evolução da composição
-    anos_maps            = c(1981, 1995, 2009, 2024), #Anos-padrão para plotagem de mapas
-    anos_dens            = c(1985, 1995, 2005, 2015, 2024), #Anos-padrão para Lorenz e densidades
-    anos_beta            = c(1981, 2024), #Anos-padrão de início e fim da análise de convergência-beta
+    anos_tabs            = c(1981, 1987, 1993, 1999, 2005, 2011, 2017, 2025), #Anos-padrão para as tabelas
+    anos_comp            = c(1985, 1995, 2005, 2015, 2025), #Anos-padrão para evolução da composição
+    anos_maps            = c(1981, 1995, 2009, 2025), #Anos-padrão para plotagem de mapas
+    anos_dens            = c(1985, 1995, 2005, 2015, 2025), #Anos-padrão para Lorenz e densidades
+    anos_beta            = c(1981, 2025), #Anos-padrão de início e fim da análise de convergência-beta
     anos_decp            = list(c(1981,1986), c(1986,1995), c(1995,2002), c(2002,2008),
-                                c(2008,2014), c(2014,2019), c(2019,2024)),
+                                c(2008,2014), c(2014,2019), c(2019,2025)),
     
     dpi                  = 200, #DPI bom para visualização online sem prejuízos
     dir_out              = 'output/graphs',
@@ -63,7 +63,7 @@ analyse_mpi <- function(
   ano_min  <- min(anos_dt)
   ano_max  <- max(anos_dt)
   
-  caption_base <- 'Fonte: PNAD anual (1981-2015) e PNAD contínua, visita 1 (2016-2024). Elaboração própria.'
+  caption_base <- 'Fonte: PNAD anual (1981-2015) e PNAD contínua, visita 1 (2016-2025). Elaboração própria.'
   
   cache_hamp <- new.env()
   cache_mpi_uf <- new.env()

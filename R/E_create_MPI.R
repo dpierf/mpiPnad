@@ -71,7 +71,7 @@ create_mpi <- function(
   handler_anterior  <- progressr::handlers()
   
   n_workers <- max(1, parallelly::availableCores() - 1)
-  future::plan(multisession, workers = n_workers)
+  future::plan(future::multisession, workers = n_workers)
   progressr::handlers(progressr::handler_progress(
     format = '[:bar] :current/:total arquivos | :message | :eta restante'
   ))
@@ -104,10 +104,10 @@ create_mpi <- function(
   
   cutoffs <- setNames(ks, paste0('pobre_k', ks * 100))
   
-  with_progress({
-    p <- progressor(along = arquivos)
+  progressr::with_progress({
+    p <- progressr::progressor(along = arquivos)
     
-    resultado <- future_map(arquivos, \(arquivo) {
+    resultado <- furrr::future_map(arquivos, \(arquivo) {
       
       ano_arq  <- stringr::str_extract(arquivo, '\\d{4}') |> as.integer()
       is_pnadc <- stringr::str_detect(arquivo, 'pnadc')
@@ -130,8 +130,8 @@ create_mpi <- function(
   
   cli::cli_h1('Preparando a base final')
   resultado <- resultado |>
-    left_join(sm_real, by = 'ano') |>
-    mutate(
+    dplyr::left_join(sm_real, by = 'ano') |>
+    dplyr::mutate(
       rpc_real = rpc * multiplicador,
       NP       = rpc_real >= sm_real,
       VP       = rpc_real >= sm_real / 2 & rpc_real < sm_real,
@@ -148,14 +148,14 @@ create_mpi <- function(
   .rac <- c(Br=1L, Pr=2L, Pd=3L, Am=4L, In=5L, Nd=9L)
   
   resultado[, `:=` (
-    sexo_dec    = fifelse(substr(arranjo_familiar,1,1)=='H', 1L, 2L),
+    sexo_dec    = data.table::fifelse(substr(arranjo_familiar,1,1)=='H', 1L, 2L),
     arranjo_dec = data.table::fcase(
       substr(arranjo_familiar,2,3)=='SS', 1L,  #Casal Com Filhos
       substr(arranjo_familiar,2,3)=='SN', 2L,  #Casal Sem Filhos
       substr(arranjo_familiar,2,3)=='NN', 3L,  #Domicilio Unipessoal
       substr(arranjo_familiar,2,3)=='NS', 4L), #Genitor Solteiro
-    setor_dec   = fifelse(setor=='U', 1L, 2L),
-    area_dec    = fifelse(area=='RM', 1L, 2L),
+    setor_dec   = data.table::fifelse(setor=='U', 1L, 2L),
+    area_dec    = data.table::fifelse(area=='RM', 1L, 2L),
     regiao      = .mac[uf],
     raca        = .rac[raca],
     periodo     = data.table::fcase(
@@ -164,7 +164,7 @@ create_mpi <- function(
       ano %in% 2003:2007, 3L,
       ano %in% 2008:2014, 4L,
       ano %in% 2015:2018, 5L,
-      ano %in% 2019:2024, 6L)
+      ano %in% 2019:2025, 6L)
   )]
   resultado[, arranjo_full := arranjo_dec * 10L + sexo_dec]
   
@@ -198,7 +198,7 @@ create_mpi <- function(
                     '5'='Indígena',           '9'='Não definido'),
     periodo     = c('1'='1981–1993',          '2'='1995–2002',
                     '3'='2003–2007',          '4'='2008–2014',
-                    '5'='2015–2018',          '6'='2019–2024'),
+                    '5'='2015–2018',          '6'='2019–2025'),
     arranjo_full= c('11'='Casal Com: Homem',     '12'='Casal Com: Mulher',
                     '21'='Casal Sem: Homem',     '22'='Casal Sem: Mulher',
                     '31'='Unipessoal: Homem',    '32'='Unipessoal: Mulher',
