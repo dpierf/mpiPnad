@@ -42,7 +42,7 @@ require(mpipnad)
 
 # 1. DOWNLOAD E PROCESSAMENTO ===========================================================
 
-# Baixar microdados da PNAD anual (1981–2015) e PNAD Contínua (2016–2024)
+# Baixar microdados da PNAD anual (1981–2015) e PNAD Contínua (2016–2025)
 download_pnad(anos = c(1981:2015))
 
 # Processar os arquivos brutos
