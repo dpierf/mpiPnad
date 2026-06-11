@@ -1,7 +1,7 @@
-# MPI-LA Brasil: PNAD & PNAD Contínua (1981-2024)
+# MPI-LA Brasil: PNAD & PNAD Contínua (1981-2025)
 
 Pipeline reproduzível para cálculo, análise e visualização do **Índice de Pobreza Multidimensional para América Latina (MPI-LA)**, 
-adaptado para os microdados da PNAD anual (1981-2015) e PNAD Contínua (2016-2024), se baseando na metodologia de Santos et al. (2015).
+adaptado para os microdados da PNAD anual (1981-2015) e PNAD Contínua (2016-2025), se baseando na metodologia de Santos et al. (2015).
 
 ---
 
@@ -65,7 +65,7 @@ Os microdados da PNAD e PNAD Contínua não estão incluídos no repositório e 
 download_pnad(anos = 1981:2015)
 ```
 
-Para a PNAD Contínua (2016-2024), os microdados necessários já são baixados automaticamente via PNADcIBGE, ao executar a função `process_pnad()`.
+Para a PNAD Contínua (2016-2025), os microdados necessários já são baixados automaticamente via PNADcIBGE, ao executar a função `process_pnad()`.
 
 ---
 
@@ -116,4 +116,4 @@ Este pacote é distribuído sob a GNU General Public License v3.0. Você pode us
 Isso garante que trabalhos derivados deste pacote permaneçam abertos e rastreáveis até a fonte original. Pier Francesco De Maria
 
 Para citação deste pacote em publicações futuras, siga a referência abaixo (conforme NBR 6023:2025)
-> DE MARIA, Pier Francesco. **mpiPnad** - MPI-LA Brasil: PNAD & PNAD Contínua (1981–2024). Versão 0.0.0.9000. [S.l.]: GitHub, 2025. Disponível em: https://github.com/dpierf/mpiPnad. Acesso em: 27 abr. 2026.
+> DE MARIA, Pier Francesco. **mpiPnad** - MPI-LA Brasil: PNAD & PNAD Contínua (1981–2025). Versão 0.0.0.9000. [S.l.]: GitHub, 2025. Disponível em: https://github.com/dpierf/mpiPnad. Acesso em: 27 abr. 2026.
