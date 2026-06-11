@@ -10,25 +10,27 @@ process_pnad(
   proc_dir = "data/02_processed",
   out_dir = "data/03_filtered",
   vars = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  skip_exists = TRUE
 )
 }
 \arguments{
-\item{file_path}{Caminho lógico do arquivo bruto (.zip para anual; arquivo PNADC para contínua)}
+\item{file_path}{Caminho do arquivo bruto (.zip/.rar/.7z para anual; .txt para contínua)}
 
-\item{type}{Tipo de pesquisa: \code{'anual'} (1981–2015) ou \code{'continua'} (2015–).
-Se \code{NULL} (padrão), detectado automaticamente a partir do nome do arquivo.}
+\item{type}{Tipo: 'anual' ou 'continua' (detectado se NULL)}
 
-\item{proc_dir}{Diretório onde serão salvos os arquivos processados completos (Parquet)}
+\item{proc_dir}{Diretório para Parquet completo}
 
-\item{out_dir}{Diretório onde serão salvos os arquivos filtrados (Parquet)}
+\item{out_dir}{Diretório para Parquet filtrado}
 
-\item{vars}{Vetor de variáveis a selecionar. \code{NULL} aplica o dicionário padrão do período}
+\item{vars}{Vetor de variáveis. NULL usa dicionário com cache}
 
-\item{verbose}{Booleano (default = \code{TRUE}) controlando mensagens de progresso}
+\item{verbose}{Mensagens de progresso}
+
+\item{skip_exists}{Se TRUE, pula processamento se arquivo filtrado já existe}
 }
 \value{
-\code{data.table} filtrado, invisível
+data.table filtrado (invisível)
 }
 \description{
 Processa microdados da PNAD (anual ou contínua)

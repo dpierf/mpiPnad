@@ -4,12 +4,24 @@
 \alias{download_pnad}
 \title{Baixa arquivos compactados da PNAD Anual a partir do CEM/USP}
 \usage{
-download_pnad(anos, destino = "data/01_raw/pnad")
+download_pnad(
+  anos,
+  destino = "data/01_raw/pnad",
+  timeout = 300,
+  force_redownload = FALSE
+)
 }
 \arguments{
 \item{anos}{Vetor de anos a baixar (ex: c(1981, 1990, 2001))}
 
 \item{destino}{Pasta de destino (default: 'data/01_raw/pnad')}
+
+\item{timeout}{Tempo máximo de download em segundos (default: 300)}
+
+\item{force_redownload}{Se TRUE, baixa mesmo se arquivo existir (default: FALSE)}
+}
+\value{
+Vetor de caminhos dos arquivos baixados (invisivelmente)
 }
 \description{
 Baixa arquivos compactados da PNAD Anual a partir do CEM/USP

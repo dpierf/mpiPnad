@@ -9,13 +9,13 @@ analyse_mpi(
   grupos = "all",
   k_ref = 0.33,
   cutoffs = c(0.1, 0.2, 0.25, 0.33, 0.4, 0.5),
-  anos_tabs = c(1981, 1987, 1993, 1999, 2005, 2011, 2017, 2024),
-  anos_comp = c(1985, 1995, 2005, 2015, 2024),
-  anos_maps = c(1981, 1995, 2009, 2024),
-  anos_dens = c(1985, 1995, 2005, 2015, 2024),
-  anos_beta = c(1981, 2024),
+  anos_tabs = c(1981, 1987, 1993, 1999, 2005, 2011, 2017, 2025),
+  anos_comp = c(1985, 1995, 2005, 2015, 2025),
+  anos_maps = c(1981, 1995, 2009, 2025),
+  anos_dens = c(1985, 1995, 2005, 2015, 2025),
+  anos_beta = c(1981, 2025),
   anos_decp = list(c(1981, 1986), c(1986, 1995), c(1995, 2002), c(2002, 2008), c(2008,
-    2014), c(2014, 2019), c(2019, 2024)),
+    2014), c(2014, 2019), c(2019, 2025)),
   dpi = 200,
   dir_out = "output/graphs",
   shapefiles = NULL,
@@ -42,7 +42,7 @@ analyse_mpi(
 
 \item{anos_dens}{Anos escolhidos para analises de dominancia e densidade (default = todo ano terminado em 5, alem do ano mais recente)}
 
-\item{anos_decp}{Lista de pares de ano para analise das decomposicoes (default = 1981-1990, 1990-2001, 2001-2011, 2011-2019, 2019-2024)}
+\item{anos_decp}{Lista de pares de ano para analise das decomposicoes (default = 1981-1990, 1990-2001, 2001-2011, 2011-2019, 2019-2025)}
 
 \item{dir_out}{Local onde os objetos serao salvos (default = 'output')}
 }
